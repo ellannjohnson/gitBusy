@@ -5,7 +5,9 @@
 1. Open the `gitBusy-macos-arm64.dmg` file.
 2. Drag `gitBusy.app` to Applications.
 3. If macOS warns that the developer cannot be verified, control-click `gitBusy.app`, choose **Open**, then confirm **Open**. This unsigned build is intended for local testing; notarization requires Apple Developer Program membership.
-4. Open `gitBusy.app` again to start gitBusy. Opening it a second time stops gitBusy and its local server.
+4. **First double-click:** starts gitBusy’s local server and opens the browser.
+5. **Second double-click:** stops gitBusy’s local server, removes gitBusy’s Tailscale route if enabled, clears the runtime marker, and closes matching gitBusy browser tabs when macOS allows it.
+6. Closing the browser window or tab does **not** stop the local server. Double-click `gitBusy.app` again to stop the services.
 
 The current app bundle is built for Apple Silicon (`arm64`). An Intel build will be produced separately if needed.
 
@@ -29,11 +31,11 @@ Tailscale must be installed and signed in on the Mac and on the mobile device. T
 
 ## Source install
 
-The source package is `gitBusy-source-v0.1.1.zip`. It is for technical users who want to run gitBusy locally:
+The source package is `gitBusy-source-v0.1.2.zip`. It is for technical users who want to run gitBusy locally:
 
 ```bash
-unzip gitBusy-source-v0.1.1.zip
-cd gitBusy-source-v0.1.1
+unzip gitBusy-source-v0.1.2.zip
+cd gitBusy-source-v0.1.2
 npm install
 npm run dev
 ```

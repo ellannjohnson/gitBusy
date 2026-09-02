@@ -14,7 +14,15 @@ Then open the localhost URL Vite prints.
 
 ## Desktop launcher
 
-A clickable macOS bundle is installed at `~/Desktop/gitBusy.app`. Double-click it to start gitBusy and open the browser; double-click it again to stop the gitBusy server and close matching local tabs when macOS allows browser automation. The canonical bundle lives at `~/Applications/gitBusy.app`.
+A clickable macOS bundle is installed at `~/Desktop/gitBusy.app`. The canonical bundle lives at `~/Applications/gitBusy.app`.
+
+### Start and stop behavior
+
+- **First double-click:** starts gitBusy’s local server and opens the browser.
+- **Second double-click:** stops gitBusy’s local server, removes gitBusy’s Tailscale route if it is enabled, clears the runtime marker, and closes matching gitBusy browser tabs when macOS allows it.
+- The applet exits after dispatching the toggle, so gitBusy may not appear as a running Dock application. Use the same `gitBusy.app` icon a second time to stop the services.
+- Closing the browser window or tab does **not** stop the local server. Double-click `gitBusy.app` again.
+- For a source install started with `npm run dev`, stop the service in the terminal with `Ctrl+C`.
 
 ## What works now
 

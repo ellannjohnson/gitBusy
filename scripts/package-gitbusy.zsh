@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT="${0:A:h:h}"
-VERSION="${1:-0.1.1}"
+VERSION="${1:-0.1.2}"
 ARCH="$(uname -m)"
 if [[ "$ARCH" != "arm64" ]]; then
   print -u2 "This packaging script currently requires Apple Silicon (arm64); found $ARCH"
