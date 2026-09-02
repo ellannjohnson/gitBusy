@@ -338,3 +338,15 @@ The remaining preview failure came from the detail merge, not from the card clic
 The merge now compares IDs through `String(repo.id)` and writes the original normalized string ID, owner, and name back after applying detail metadata. The first-repo fallback remains removed, so a missing selection cannot silently become OpenCut.
 
 Live Helium verification on 2026-09-02: the gitBusy tab was opened at `#library`, the `Tsitko/datasciencecoursera` card was clicked, the address changed to `#library/30251453`, the breadcrumb changed to `datasciencecourse`, the right preview showed `datasciencecourse`, and after a five-second README/detail wait the preview and library cards were still present. The native browser driver initially targeted Helium’s New Tab and a bookmark menu; that was a test-tool targeting error, not an app result.
+
+---
+
+## 11. gitBusy naming and navigation race fix
+
+Commit: `bdc507b feat: rename app to gitBusy and stabilize mobile navigation`
+
+The application is now named `gitBusy` in the browser title, sidebar brand, local storage namespace, server identifiers, macOS bundle metadata, favicon, launcher notifications, README, and publish defaults. The project directory remains `/Users/ellannjohnson/stargazer-local` so existing local tooling and documentation paths remain valid. The installed bundle is `/Users/ellannjohnson/Applications/gitBusy.app`, with `/Users/ellannjohnson/Desktop/gitBusy.app` as its symlink. The old Starboard bundle and Desktop launcher were moved to Trash.
+
+The hamburger/X bug was a pointer-event race. Opening the menu on `pointerdown` mounted the backdrop before the same pointer sequence completed, so the follow-up event could immediately close it. The controls now use one click handler each, explicit hash/state synchronization, and a visible X whenever the drawer is open. The launcher browser-tab cleanup is bounded so an AppleScript hang cannot leave the applet resident and make later clicks appear dead.
+
+Verified in the deterministic local desktop preview: the hamburger changed the route to `#menu`, the X returned to the prior library route after the final race fix, and the repo-selection/README wait remained stable. The supplied recording path `/Users/ellannjohnson/Downloads/export-1788380277801.mp4` was not present on disk, so it was not used as verification. The responsive CSS stacks the workspace below 60rem, changes controls and folder panels to one column below 42rem, and preserves the mobile drawer/backdrop; a physical 375px click-through remains a separate browser-device test.

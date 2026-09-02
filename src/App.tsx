@@ -463,12 +463,11 @@ function App() {
     commitHashRoute('#menu')
   }
 
-  const closeSidebar = (event?: SyntheticEvent) => {
-    event?.preventDefault()
+  const closeSidebar = () => {
     setSidebarOpen(false)
     const route = hashRoute()
     const nextHash = route.repoId ? `${route.section === 'repos' ? '#repos' : '#library'}/${route.repoId}` : activeSection === 'explore' ? `#explore/${exploreKind}` : `#${activeSection}`
-    commitHashRoute(nextHash, true)
+    if (window.location.hash !== nextHash) window.location.hash = nextHash
   }
 
   const closeSettings = () => {
