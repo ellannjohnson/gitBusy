@@ -371,4 +371,27 @@ The distribution plan has two outputs from the same codebase. The Mac-user outpu
 
 A free Apple Account is enough to register as an Apple developer, access documentation and developer resources, download Xcode, and install/test personal builds through Xcode. It is not enough for the polished distribution capabilities needed for a broadly downloadable Mac app. Apple’s current official enrollment pages list the Apple Developer Program at 99 USD per membership year, with local-currency pricing. Membership is needed for Developer ID certificates and macOS notarization, as well as App Store Connect and TestFlight.
 
-Enrollment requires an Apple Account with two-factor authentication, legal-age eligibility, legal name, email, phone, and address. Individual enrollment lists the person’s legal name as the seller. Organization enrollment has additional legal-entity, authority, work-email, website, and D-U-N-S requirements. Until EJ chooses to enroll, gitBusy can be distributed as an unsigned ZIP or installed from source; macOS may show a Gatekeeper warning. No Apple Developer membership is required for the current local app or Tailscale implementation.
+Apple’s enrollment process requires an Apple Account with two-factor authentication, legal-age eligibility, legal name, email, phone, and address. Individual enrollment lists the person’s legal name as the seller. Organization enrollment has additional legal-entity, authority, work-email, website, and D-U-N-S requirements. Until EJ chooses to enroll, gitBusy can be distributed as an unsigned ZIP or installed from source; macOS may show a Gatekeeper warning. No Apple Developer membership is required for the current local app or Tailscale implementation.
+
+---
+
+## 14. Private GitHub repository and release receipt
+
+The source repository is now uploaded to the authenticated personal GitHub account as a private repository:
+
+```text
+https://github.com/ellannjohnson/gitBusy
+```
+
+The local `main` branch was pushed and read back with the same commit SHA. The private repository’s initial `v0.1.0` prerelease points to commit `59d16281ebf657623c886b9cf203bdfc658113a5`; GitHub read-back reports both the author and committer as `ellannjohnson`.
+
+The release assets are:
+
+```text
+https://github.com/ellannjohnson/gitBusy/releases/download/v0.1.0/gitBusy-macos-arm64-v0.1.0.dmg
+https://github.com/ellannjohnson/gitBusy/releases/download/v0.1.0/gitBusy-macos-arm64-v0.1.0.zip
+https://github.com/ellannjohnson/gitBusy/releases/download/v0.1.0/gitBusy-source-v0.1.0.zip
+https://github.com/ellannjohnson/gitBusy/releases/download/v0.1.0/SHA256SUMS.txt
+```
+
+The DMG and app ZIP contain the bundled arm64 Node runtime, complete Vite dependencies, portable bundle launcher, and `INSTALL.md`. The source ZIP omits `node_modules` and requires `npm install`. Checksums pass from the release directory, the DMG mounts with `gitBusy.app` and `INSTALL.md`, the portable app launched from `/tmp` and served `/api/network/status`, and its second launch stopped the server cleanly. This is an unsigned Apple Silicon preview because EJ does not currently have paid Apple Developer membership. No GitHub publish-folder operation was performed by gitBusy.
