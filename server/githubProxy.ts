@@ -540,7 +540,7 @@ async function writeServeConfig(config: Record<string, any>) {
   const configPath = join(tempDir, 'config.json')
   try {
     writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8')
-    await runTailscale(['serve', 'set-config', configPath, '--all'])
+    await runTailscale(['serve', 'set-config', '--all', configPath])
   } finally {
     rmSync(tempDir, { recursive: true, force: true })
   }

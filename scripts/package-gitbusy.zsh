@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT="${0:A:h:h}"
-VERSION="${1:-0.1.0}"
+VERSION="${1:-0.1.1}"
 ARCH="$(uname -m)"
 if [[ "$ARCH" != "arm64" ]]; then
   print -u2 "This packaging script currently requires Apple Silicon (arm64); found $ARCH"
@@ -64,6 +64,7 @@ DMG_ROOT="$STAGE/gitBusy-dmg"
 mkdir -p "$DMG_ROOT"
 cp -R "$APP" "$DMG_ROOT/gitBusy.app"
 cp "$PROJECT/INSTALL.md" "$DMG_ROOT/INSTALL.md"
+ln -s /Applications "$DMG_ROOT/Applications"
 hdiutil create -volname gitBusy -srcfolder "$DMG_ROOT" -ov -format UDZO "$OUT/gitBusy-macos-${ARCH}-v${VERSION}.dmg" >/dev/null
 
 (cd "$OUT" && shasum -a 256 *.zip *.dmg > SHA256SUMS.txt)

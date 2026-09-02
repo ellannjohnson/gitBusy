@@ -29,11 +29,11 @@ Tailscale must be installed and signed in on the Mac and on the mobile device. T
 
 ## Source install
 
-The source package is for technical users who want to run gitBusy locally:
+The source package is `gitBusy-source-v0.1.1.zip`. It is for technical users who want to run gitBusy locally:
 
 ```bash
-unzip gitBusy-source-v0.1.0.zip
-cd gitBusy-source-v0.1.0
+unzip gitBusy-source-v0.1.1.zip
+cd gitBusy-source-v0.1.1
 npm install
 npm run dev
 ```
