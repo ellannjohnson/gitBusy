@@ -261,9 +261,12 @@ function App() {
     fetchGithubRepo(selectedRepo.owner, selectedRepo.name)
       .then((detail) => {
         if (cancelled) return
-        const applyDetail = (current: Repo[]) => current.map((repo) => repo.id === selectedRepo.id ? {
+        const applyDetail = (current: Repo[]) => current.map((repo) => String(repo.id) === selectedRepo.id ? {
           ...repo,
           ...detail,
+          id: String(repo.id),
+          owner: repo.owner,
+          name: repo.name,
           summary: detail.description || repo.summary,
         } : repo)
         setRepos(applyDetail)
