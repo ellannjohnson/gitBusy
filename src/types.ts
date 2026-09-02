@@ -23,6 +23,7 @@ export type Repo = {
   forksCount?: number
   license?: string
   inLibrary?: boolean
+  visibility?: 'Public' | 'Private'
 }
 
 export type Section = 'library' | 'repos' | 'projects' | 'explore' | 'releases'

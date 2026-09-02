@@ -242,6 +242,15 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .tag-browser {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tags-panel__footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .detail-panel {
     border-radius: var(--radius-lg);
   }

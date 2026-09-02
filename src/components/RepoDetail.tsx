@@ -68,6 +68,7 @@ export function RepoDetail({ repo, activeTab, onTabChange, onClose, onTogglePinn
               <div><span>Project</span><strong>{repo.project}</strong></div>
               <div><span>Last release</span><strong>{repo.lastRelease}</strong></div>
               <div><span>Updated</span><strong>{repo.updated}</strong></div>
+              <div><span>Visibility</span><strong>{repo.visibility ?? 'Unknown'}</strong></div>
             </div>
             <div className="detail-readme">
               <div className="detail-block-heading"><span className="section-kicker">README excerpt</span><FileCode2 size={15} /></div>

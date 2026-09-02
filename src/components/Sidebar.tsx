@@ -26,7 +26,7 @@ type SidebarProps = {
   selectedId: string
   onSelectRepo: (repoId: string) => void
   onFilterChange: (filter: Filter) => void
-  onOpenFilters: () => void
+  onOpenTags: () => void
   onSettings: () => void
   sidebarOpen: boolean
   onClose: () => void
@@ -40,7 +40,7 @@ const primaryItems: Array<{ id: Section; label: string; icon: typeof Library }> 
   { id: 'releases', label: 'Releases', icon: PackageOpen },
 ]
 
-export function Sidebar({ activeSection, onNavigate, pinnedCount, reviewCount, accountLogin, dataSource, repos, selectedId, onSelectRepo, onFilterChange, onOpenFilters, onSettings, sidebarOpen, onClose }: SidebarProps) {
+export function Sidebar({ activeSection, onNavigate, pinnedCount, reviewCount, accountLogin, dataSource, repos, selectedId, onSelectRepo, onFilterChange, onOpenTags, onSettings, sidebarOpen, onClose }: SidebarProps) {
   return (
     <aside className={`sidebar ${sidebarOpen ? 'sidebar--open' : ''}`} aria-label="Primary navigation">
       <div className="sidebar__topline">
@@ -93,10 +93,10 @@ export function Sidebar({ activeSection, onNavigate, pinnedCount, reviewCount, a
           <span>Needs review</span>
           <span className="nav-item__count">{reviewCount}</span>
         </button>
-        <button className="nav-item" type="button" onClick={() => { onNavigate('library'); onOpenFilters(); onClose() }}>
+        <a className="nav-item" href="#tags" onClick={() => { onNavigate('library'); onOpenTags(); onClose() }}>
           <Tags size={17} strokeWidth={1.9} />
           <span>All tags</span>
-        </button>
+        </a>
       </nav>
 
       <div className="sidebar__label sidebar__label--repos">Starred repos</div>

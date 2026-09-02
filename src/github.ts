@@ -15,6 +15,7 @@ export type GithubRemoteRepo = {
   starsCount?: number
   forksCount?: number
   license?: string
+  visibility?: 'Public' | 'Private'
 }
 
 export type GithubSnapshot = {
@@ -111,6 +112,7 @@ export function mapGithubRepo(remote: GithubRemoteRepo, local?: Repo): Repo {
     forksCount: remote.forksCount,
     license: remote.license,
     inLibrary: Boolean(local),
+    visibility: remote.visibility,
   }
 }
 

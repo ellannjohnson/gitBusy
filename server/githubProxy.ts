@@ -18,6 +18,7 @@ type GithubStar = {
   stargazers_count: number
   forks_count: number
   license?: { spdx_id: string | null } | null
+  private?: boolean
   updated_at: string
   pushed_at: string | null
   default_branch: string
@@ -104,7 +105,7 @@ async function fetchStarred(authorization: string) {
 async function fetchOwnedRepos(authorization: string) {
   const owned: GithubStar[] = []
   for (let page = 1; page <= 100; page += 1) {
-    const { data } = await githubGet(`/user/repos?visibility=all&affiliation=owner&sort=updated&per_page=100&page=${page}`, authorization)
+    const { data } = await githubGet(`/user/repos?visibility=all&affiliation=owner,collaborator,organization_member&sort=updated&per_page=100&page=${page}`, authorization)
     if (!Array.isArray(data) || data.length === 0) break
     owned.push(...data)
     if (data.length < 100) break
@@ -128,6 +129,7 @@ function mapStar(repo: GithubStar) {
     starsCount: repo.stargazers_count,
     forksCount: repo.forks_count,
     license: repo.license?.spdx_id ?? undefined,
+    visibility: repo.private ? 'Private' : 'Public',
   }
 }
 
@@ -204,6 +206,7 @@ async function fetchRepoDetail(owner: string, name: string) {
     starsCount: repo.stargazers_count,
     forksCount: repo.forks_count,
     license: repo.license?.spdx_id ?? undefined,
+    visibility: repo.private ? 'Private' : 'Public',
     readme: [heading, ...body],
     files: tree.slice(0, 32).map((item: { path: string }) => item.path),
     lastRelease: releaseResult.data?.tag_name ?? 'No releases',

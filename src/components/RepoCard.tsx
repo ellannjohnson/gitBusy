@@ -1,4 +1,4 @@
-import { Archive, ArrowUpRight, Check, Clock3, GitFork, MoreHorizontal, Star } from 'lucide-react'
+import { Archive, ArrowUpRight, Check, Clock3, GitFork, Globe, LockKeyhole, MoreHorizontal, Star } from 'lucide-react'
 import type { Repo } from '../types'
 
 type RepoCardProps = {
@@ -40,6 +40,7 @@ export function RepoCard({ repo, selected, viewMode, onSelect, onTogglePinned }:
         <p className="repo-card__summary">{repo.summary}</p>
         <div className="repo-card__meta">
           <span className="language"><span className="language__dot" style={{ backgroundColor: repo.languageColor }} />{repo.language}</span>
+          {repo.visibility && <span className="visibility"><>{repo.visibility === 'Private' ? <LockKeyhole size={13} /> : <Globe size={13} />}</>{repo.visibility}</span>}
           {repo.starsCount !== undefined && <span><Star size={13} /> {compactNumber(repo.starsCount)}</span>}
           <span><Clock3 size={13} /> Updated {repo.updated}</span>
           <span className="repo-project">{repo.project}</span>

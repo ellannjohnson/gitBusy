@@ -21,6 +21,7 @@ import { ExploreShelf } from './components/ExploreShelf'
 import { RepoCard } from './components/RepoCard'
 import { RepoDetail } from './components/RepoDetail'
 import { Sidebar } from './components/Sidebar'
+import { TagsPanel } from './components/TagsPanel'
 import { seedRepos, sectionMeta } from './data'
 import { fetchGithubExplore, fetchGithubRepo, fetchGithubRepos, fetchGithubSnapshot, mapGithubRepo, mergeGithubRepos, subjectsForRepo } from './github'
 import type { ExploreKind } from './github'
@@ -47,16 +48,18 @@ function matchesActivity(repo: Repo, filter: ActivityFilter) {
 }
 
 function hashRoute() {
-  if (typeof window === 'undefined') return { section: 'library' as Section, kind: 'trending' as ExploreKind, menu: false, settings: false }
+  if (typeof window === 'undefined') return { section: 'library' as Section, kind: 'trending' as ExploreKind, menu: false, settings: false, tags: false }
   const [section, kind] = window.location.hash.replace(/^#/, '').split('/')
   const validKinds: ExploreKind[] = ['trending', 'top', 'opensource', 'selfhosted']
   const isMenu = section === 'menu'
   const isSettings = section === 'settings'
+  const isTags = section === 'tags'
   return {
     section: section === 'projects' || section === 'repos' || section === 'releases' || section === 'explore' ? section as Section : 'library' as Section,
     kind: validKinds.includes(kind as ExploreKind) ? kind as ExploreKind : 'trending',
     menu: isMenu,
     settings: isSettings,
+    tags: isTags,
   }
 }
 
@@ -84,6 +87,8 @@ function App() {
   const [query, setQuery] = useState('')
   const [language, setLanguage] = useState('All languages')
   const [subjectFilter, setSubjectFilter] = useState('All subjects')
+  const [tagFilter, setTagFilter] = useState('All tags')
+  const [tagsOpen, setTagsOpen] = useState(() => hashRoute().tags)
   const [projectFilter, setProjectFilter] = useState('All projects')
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>('All activity')
   const [filtersOpen, setFiltersOpen] = useState(true)
@@ -107,9 +112,15 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(() => hashRoute().settings)
   const [toast, setToast] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
+  const reposRef = useRef<Repo[]>(repos)
+  const myReposLoadedRef = useRef(false)
 
   useEffect(() => {
     window.localStorage.setItem('starboard-repos', JSON.stringify(repos))
+  }, [repos])
+
+  useEffect(() => {
+    reposRef.current = repos
   }, [repos])
 
   useEffect(() => {
@@ -136,7 +147,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (activeSection !== 'repos' || dataSource !== 'github') return
+    if (activeSection !== 'repos' || dataSource !== 'github' || myReposLoadedRef.current) return
     let cancelled = false
     const loadMyRepos = async () => {
       setMyReposLoading(true)
@@ -144,11 +155,13 @@ function App() {
       try {
         const result = await fetchGithubRepos()
         if (cancelled) return
-        const currentByName = new Map(repos.map((repo) => [`${repo.owner}/${repo.name}`, repo]))
+        const currentByName = new Map(reposRef.current.map((repo) => [`${repo.owner}/${repo.name}`, repo]))
         const mapped = result.repos.map((repo) => mapGithubRepo(repo, currentByName.get(`${repo.owner}/${repo.name}`)))
+        myReposLoadedRef.current = true
         setMyRepos(mapped)
         setSelectedId((currentId) => mapped.some((repo) => repo.id === currentId) ? currentId : mapped[0]?.id ?? currentId)
       } catch (error) {
+        myReposLoadedRef.current = false
         if (!cancelled) setMyReposError(error instanceof Error ? error.message : 'My repos could not be loaded')
       } finally {
         if (!cancelled) setMyReposLoading(false)
@@ -156,17 +169,18 @@ function App() {
     }
     void loadMyRepos()
     return () => { cancelled = true }
-  }, [activeSection, dataSource, myReposReload, repos])
+  }, [activeSection, dataSource, myReposReload])
 
   useEffect(() => {
     const handleHashChange = () => {
       const route = hashRoute()
-      if (!route.menu && !route.settings) {
+      if (!route.menu && !route.settings && !route.tags) {
         setActiveSection(route.section)
         setExploreKind(route.kind)
       }
       setSidebarOpen(route.menu)
       setSettingsOpen(route.settings)
+      setTagsOpen(route.tags)
     }
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
@@ -208,6 +222,11 @@ function App() {
   const languages = useMemo(() => ['All languages', ...Array.from(new Set(collectionRepos.map((repo) => repo.language)))], [collectionRepos])
   const subjects = useMemo(() => ['All subjects', ...Array.from(new Set(collectionRepos.flatMap((repo) => subjectsForRepo(repo))))], [collectionRepos])
   const projects = useMemo(() => ['All projects', ...Array.from(new Set(collectionRepos.map((repo) => repo.project)))], [collectionRepos])
+  const tagStats = useMemo(() => {
+    const counts = new Map<string, number>()
+    collectionRepos.forEach((repo) => new Set(repo.tags).forEach((tag) => counts.set(tag, (counts.get(tag) ?? 0) + 1)))
+    return Array.from(counts.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => ({ label, count }))
+  }, [collectionRepos])
   const selectedRepo = repos.find((repo) => repo.id === selectedId) ?? myRepos.find((repo) => repo.id === selectedId) ?? collectionRepos[0]
   const meta = sectionMeta[activeSection]
 
@@ -267,6 +286,7 @@ function App() {
         if (filter === 'Archived' && repo.status !== 'Archived') return false
         if (language !== 'All languages' && repo.language !== language) return false
         if (subjectFilter !== 'All subjects' && !subjectsForRepo(repo).includes(subjectFilter)) return false
+        if (tagFilter !== 'All tags' && !repo.tags.includes(tagFilter)) return false
         if (projectFilter !== 'All projects' && repo.project !== projectFilter) return false
         if (!matchesActivity(repo, activityFilter)) return false
         if (activeSection === 'projects' && repo.project !== 'Daily driver') return false
@@ -282,7 +302,7 @@ function App() {
         if (sortKey === 'project') return a.project.localeCompare(b.project)
         return a.updatedAt - b.updatedAt
       })
-  }, [activeSection, activityFilter, collectionRepos, filter, language, projectFilter, query, sortKey, subjectFilter])
+  }, [activeSection, activityFilter, collectionRepos, filter, language, projectFilter, query, sortKey, subjectFilter, tagFilter])
 
   const togglePinned = (repoId: string) => {
     const update = (current: Repo[]) => current.map((repo) => repo.id === repoId ? { ...repo, isPinned: !repo.isPinned } : repo)
@@ -313,6 +333,8 @@ function App() {
       const snapshot = await fetchGithubSnapshot()
       setRepos((current) => mergeGithubRepos(snapshot.repos, current))
       setSelectedId((currentId) => snapshot.repos.some((repo) => String(repo.id) === currentId) ? currentId : String(snapshot.repos[0]?.id ?? currentId))
+      myReposLoadedRef.current = false
+      setMyReposReload((value) => value + 1)
       setDetailError(false)
       setAccountLogin(snapshot.user.login)
       setDataSource('github')
@@ -380,6 +402,20 @@ function App() {
     window.location.hash = activeSection === 'explore' ? `#explore/${exploreKind}` : `#${activeSection}`
   }
 
+  const closeTags = () => {
+    setTagsOpen(false)
+    if (window.location.hash === '#tags') window.location.hash = '#library'
+  }
+
+  const selectTag = (tag: string) => {
+    setTagFilter(tag)
+    setTagsOpen(false)
+    setFiltersOpen(true)
+    setActiveSection('library')
+    if (window.location.hash === '#tags') window.location.hash = '#library'
+  }
+
+  const showTags = tagsOpen || (typeof window !== 'undefined' && window.location.hash === '#tags')
   const showSettings = settingsOpen || (typeof window !== 'undefined' && window.location.hash === '#settings')
 
   if (!selectedRepo) return null
@@ -387,7 +423,7 @@ function App() {
   return (
     <div className="app-shell">
       {sidebarOpen && <button className="sidebar-backdrop" type="button" onClick={closeSidebar} onPointerUp={closeSidebar} aria-label="Close navigation overlay" />}
-      <Sidebar activeSection={activeSection} onNavigate={setActiveSection} pinnedCount={pinnedCount} reviewCount={reviewCount} accountLogin={accountLogin} dataSource={dataSource} repos={repos} selectedId={selectedId} onSelectRepo={(repoId) => { setSelectedId(repoId); setDetailTab('Overview'); setDetailOpen(true); closeSidebar(); setDetailError(false); setDetailLoading(false) }} onFilterChange={setFilter} onOpenFilters={() => setFiltersOpen(true)} onSettings={() => { setSettingsOpen(true); closeSidebar() }} sidebarOpen={sidebarOpen} onClose={closeSidebar} />
+      <Sidebar activeSection={activeSection} onNavigate={setActiveSection} pinnedCount={pinnedCount} reviewCount={reviewCount} accountLogin={accountLogin} dataSource={dataSource} repos={repos} selectedId={selectedId} onSelectRepo={(repoId) => { setSelectedId(repoId); setDetailTab('Overview'); setDetailOpen(true); closeSidebar(); setDetailError(false); setDetailLoading(false) }} onFilterChange={setFilter} onOpenTags={() => { setTagsOpen(true); setActiveSection('library') }} onSettings={() => { setSettingsOpen(true); closeSidebar() }} sidebarOpen={sidebarOpen} onClose={closeSidebar} />
       <div className="app-content">
         <header className="topbar">
           <a className="icon-button menu-button" href="#menu" onClick={() => setSidebarOpen(true)} onPointerUp={() => setSidebarOpen(true)} aria-label="Open navigation" aria-expanded={sidebarOpen}><Menu size={19} /></a>
@@ -448,9 +484,10 @@ function App() {
             <button className={`filter-toggle ${filtersOpen ? 'filter-toggle--active' : ''}`} type="button" onClick={() => setFiltersOpen((open) => !open)} aria-expanded={filtersOpen}><SlidersHorizontal size={14} /> More filters <ChevronDown className={filtersOpen ? 'filter-toggle__chevron filter-toggle__chevron--open' : 'filter-toggle__chevron'} size={14} /></button>
             {filtersOpen && <div className="advanced-filters" aria-label="Advanced repo filters">
               <label className="select-label"><span className="advanced-filter__label">Subject</span><select value={subjectFilter} onChange={(event) => setSubjectFilter(event.target.value)}>{subjects.map((item) => <option key={item}>{item}</option>)}</select><ChevronDown size={14} /></label>
+              <label className="select-label"><span className="advanced-filter__label">Tag</span><select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)}><option>All tags</option>{tagStats.map((tag) => <option key={tag.label}>{tag.label}</option>)}</select><ChevronDown size={14} /></label>
               <label className="select-label"><span className="advanced-filter__label">Project</span><select value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)}>{projects.map((item) => <option key={item}>{item}</option>)}</select><ChevronDown size={14} /></label>
               <label className="select-label"><span className="advanced-filter__label">Activity</span><select value={activityFilter} onChange={(event) => setActivityFilter(event.target.value as ActivityFilter)}><option>All activity</option><option>Updated this week</option><option>Updated this month</option><option>Stale 90d+</option></select><ChevronDown size={14} /></label>
-              <button className="clear-advanced" type="button" onClick={() => { setSubjectFilter('All subjects'); setProjectFilter('All projects'); setActivityFilter('All activity') }}>Reset</button>
+              <button className="clear-advanced" type="button" onClick={() => { setSubjectFilter('All subjects'); setTagFilter('All tags'); setProjectFilter('All projects'); setActivityFilter('All activity') }}>Reset</button>
             </div>}
           </section>
 
@@ -477,7 +514,7 @@ function App() {
                   <div className="empty-state__icon"><Search size={21} /></div>
                   <h2>No repos match that view</h2>
                   <p>Try a shorter search, clear a filter, or return to the full library.</p>
-                  <button className="button button--quiet" type="button" onClick={() => { setQuery(''); setFilter('All'); setLanguage('All languages'); setSubjectFilter('All subjects'); setProjectFilter('All projects'); setActivityFilter('All activity') }}>Clear filters</button>
+                  <button className="button button--quiet" type="button" onClick={() => { setQuery(''); setFilter('All'); setLanguage('All languages'); setSubjectFilter('All subjects'); setTagFilter('All tags'); setProjectFilter('All projects'); setActivityFilter('All activity') }}>Clear filters</button>
                 </div>
               )}
             </div>
@@ -488,6 +525,8 @@ function App() {
       </div>
 
       {toast && <div className="toast" role="status"><span className="toast__icon"><Check size={14} /></span>{toast}</div>}
+
+      {showTags && <TagsPanel tags={tagStats} totalRepos={collectionRepos.length} activeTag={tagFilter} onSelect={selectTag} onClose={closeTags} />}
 
       {showSettings && <div className="settings-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSettings() }}>
         <section className="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
