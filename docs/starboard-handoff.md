@@ -409,3 +409,15 @@ https://github.com/ellannjohnson/gitBusy/releases/download/v0.1.1/gitBusy-macos-
 ```
 
 The app remains opt-in for Tailscale. It was not enabled during this correction, so the existing `/`, `/grants`, and `:8443` routes were not changed.
+
+---
+
+## 16. v0.1.2 README and stop-behavior documentation
+
+The root `README.md` and DMG `INSTALL.md` now state the service lifecycle explicitly. The first double-click starts gitBusy and opens the browser. The second double-click stops the local server, removes the gitBusy Tailscale route if enabled, clears the runtime marker, and closes matching browser tabs when permitted. Closing the browser alone does not stop the service. Source installs using `npm run dev` stop with `Ctrl+C`.
+
+These instructions are included in the corrected private `v0.1.2` prerelease, tagged at commit `7e088ce docs: clarify gitBusy stop behavior`. The DMG contains `gitBusy.app`, an `Applications` alias, and `INSTALL.md`. Download:
+
+```text
+https://github.com/ellannjohnson/gitBusy/releases/download/v0.1.2/gitBusy-macos-arm64-v0.1.2.dmg
+```
