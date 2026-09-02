@@ -1,5 +1,8 @@
 import { spawn } from 'node:child_process'
 import { Buffer } from 'node:buffer'
+import { randomBytes } from 'node:crypto'
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import https from 'node:https'
 import { URL } from 'node:url'
 import type { Plugin } from 'vite'
@@ -442,6 +445,193 @@ async function publishFolderToGithub(value: unknown) {
   }
 }
 
+const GITBUSY_TAILSCALE_PATH = '/gitbusy'
+const GITBUSY_LOCAL_TARGET = 'http://127.0.0.1:5174'
+const GITBUSY_SESSION_COOKIE = 'gitbusy_session'
+let tailscaleEnabled = false
+let tailscaleUrl = ''
+let tailscalePairingCode = ''
+const tailscaleSessions = new Set<string>()
+
+type CommandResult = { stdout: string; stderr: string }
+
+function tailscaleBinary() {
+  const home = process.env.HOME || ''
+  const candidates = [
+    '/Applications/Tailscale.app/Contents/MacOS/Tailscale',
+    home ? join(home, '.local/bin/tailscale') : '',
+  ]
+  return candidates.find((candidate) => candidate && existsSync(candidate)) || ''
+}
+
+function runTailscale(args: string[], timeoutMs = 15_000): Promise<CommandResult> {
+  const binary = tailscaleBinary()
+  if (!binary) return Promise.reject(httpError(503, 'Tailscale is not installed on this Mac'))
+  return new Promise((resolve, reject) => {
+    const child = spawn(binary, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    let stdout = ''
+    let stderr = ''
+    let settled = false
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      child.kill('SIGTERM')
+      reject(httpError(504, 'Tailscale did not respond in time'))
+    }, timeoutMs)
+    child.stdout?.setEncoding('utf8')
+    child.stderr?.setEncoding('utf8')
+    child.stdout?.on('data', (chunk: string) => { stdout += chunk })
+    child.stderr?.on('data', (chunk: string) => { stderr += chunk })
+    child.on('error', (error) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      reject(error)
+    })
+    child.on('close', (code) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      if (code !== 0) {
+        reject(httpError(502, stderr.trim() || `Tailscale command failed with status ${code ?? 'unknown'}`))
+        return
+      }
+      resolve({ stdout, stderr })
+    })
+  })
+}
+
+function trimDnsName(value: unknown) {
+  return typeof value === 'string' ? value.replace(/\.$/, '') : ''
+}
+
+async function tailscaleIdentity() {
+  try {
+    const result = await runTailscale(['status', '--json'])
+    const data = JSON.parse(result.stdout) as { BackendState?: string; Self?: { HostName?: string; DNSName?: string; TailscaleIPs?: string[] } }
+    return {
+      tailscaleAvailable: true,
+      backendState: data.BackendState || 'Unknown',
+      hostName: data.Self?.HostName || '',
+      dnsName: trimDnsName(data.Self?.DNSName),
+      error: '',
+    }
+  } catch (error) {
+    return {
+      tailscaleAvailable: false,
+      backendState: 'Unavailable',
+      hostName: '',
+      dnsName: '',
+      error: error instanceof Error ? error.message : 'Tailscale status failed',
+    }
+  }
+}
+
+async function serveConfig() {
+  const result = await runTailscale(['serve', 'status', '--json'])
+  const parsed = result.stdout.trim() ? JSON.parse(result.stdout) as Record<string, any> : {}
+  if (!parsed.version) parsed.version = '0.0.1'
+  if (!parsed.Web) parsed.Web = {}
+  return parsed
+}
+
+async function writeServeConfig(config: Record<string, any>) {
+  const tempDir = mkdtempSync(join(process.env.TMPDIR || '/tmp', 'gitbusy-serve-'))
+  const configPath = join(tempDir, 'config.json')
+  try {
+    writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8')
+    await runTailscale(['serve', 'set-config', configPath, '--all'])
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true })
+  }
+}
+
+async function enableGitBusyServe(dnsName: string) {
+  if (!dnsName) throw httpError(502, 'Tailscale did not return a MagicDNS hostname')
+  const config = await serveConfig()
+  const web = config.Web as Record<string, any>
+  const serviceKey = `${dnsName}:443`
+  const service = (web[serviceKey] && typeof web[serviceKey] === 'object') ? web[serviceKey] : { Handlers: {} }
+  const handlers = (service.Handlers && typeof service.Handlers === 'object') ? service.Handlers as Record<string, any> : {}
+  const existing = handlers[GITBUSY_TAILSCALE_PATH]
+  if (existing && existing.Proxy !== GITBUSY_LOCAL_TARGET) {
+    throw httpError(409, `Tailscale path ${GITBUSY_TAILSCALE_PATH} is already used by another service`)
+  }
+  handlers[GITBUSY_TAILSCALE_PATH] = { Proxy: GITBUSY_LOCAL_TARGET }
+  web[serviceKey] = { ...service, Handlers: handlers }
+  config.Web = web
+  await writeServeConfig(config)
+  return `https://${dnsName}${GITBUSY_TAILSCALE_PATH}`
+}
+
+async function disableGitBusyServe() {
+  const config = await serveConfig()
+  const web = config.Web as Record<string, any>
+  let changed = false
+  for (const [serviceKey, service] of Object.entries(web)) {
+    const handlers = service?.Handlers
+    if (!handlers || handlers[GITBUSY_TAILSCALE_PATH]?.Proxy !== GITBUSY_LOCAL_TARGET) continue
+    const nextHandlers = { ...handlers }
+    delete nextHandlers[GITBUSY_TAILSCALE_PATH]
+    web[serviceKey] = { ...service, Handlers: nextHandlers }
+    changed = true
+  }
+  if (changed) {
+    config.Web = web
+    await writeServeConfig(config)
+  }
+}
+
+function requestHost(request: any) {
+  const forwarded = request.headers?.['x-forwarded-host']
+  return String(forwarded || request.headers?.host || '').split(',')[0].split(':')[0].replace(/^\[/, '').replace(/\]$/, '').toLowerCase()
+}
+
+function isLocalRequest(request: any) {
+  return ['127.0.0.1', 'localhost', '::1'].includes(requestHost(request))
+}
+
+function requestCookie(request: any, name: string) {
+  const cookieHeader = String(request.headers?.cookie || '')
+  const pair = cookieHeader.split(';').map((part: string) => part.trim()).find((part: string) => part.startsWith(`${name}=`))
+  return pair ? decodeURIComponent(pair.slice(name.length + 1)) : ''
+}
+
+function isNetworkAuthenticated(request: any) {
+  return isLocalRequest(request) || (tailscaleEnabled && tailscaleSessions.has(requestCookie(request, GITBUSY_SESSION_COOKIE)))
+}
+
+function setNetworkCookie(response: any, request: any, token: string, clear = false) {
+  const secure = String(request.headers?.['x-forwarded-proto'] || '').toLowerCase() === 'https' || !isLocalRequest(request)
+  const attributes = [
+    `${GITBUSY_SESSION_COOKIE}=${clear ? '' : encodeURIComponent(token)}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Strict',
+    `Max-Age=${clear ? 0 : 60 * 60 * 24 * 30}`,
+  ]
+  if (secure) attributes.push('Secure')
+  response.setHeader('Set-Cookie', attributes.join('; '))
+}
+
+async function networkStatus(request: any) {
+  const identity = await tailscaleIdentity()
+  return {
+    ...identity,
+    tailscaleEnabled,
+    authenticated: !tailscaleEnabled || isNetworkAuthenticated(request),
+    url: tailscaleEnabled ? tailscaleUrl : '',
+    pairingCode: isLocalRequest(request) && tailscaleEnabled ? tailscalePairingCode : undefined,
+  }
+}
+
+async function clearStaleGitBusyServe() {
+  try {
+    await disableGitBusyServe()
+  } catch {
+    // Tailscale may be unavailable during local-only startup.
+  }
+}
 function sendJson(response: any, status: number, payload: unknown) {
   response.statusCode = status
   response.setHeader('Content-Type', 'application/json; charset=utf-8')
@@ -455,6 +645,79 @@ export function githubProxy(): Plugin {
     configureServer(server) {
       server.middlewares.use(async (request, response, next) => {
         const url = new URL(request.url ?? '/', 'http://gitbusy.local')
+        if (url.pathname === '/api/network/status') {
+          try {
+            sendJson(response, 200, await networkStatus(request))
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Network status failed'
+            sendJson(response, 502, { error: message })
+          }
+          return
+        }
+        if (url.pathname === '/api/network/tailscale') {
+          if (request.method !== 'POST') {
+            sendJson(response, 405, { error: 'Tailscale access requires POST' })
+            return
+          }
+          if (!isLocalRequest(request)) {
+            sendJson(response, 403, { error: 'Tailscale access can only be changed on the Mac running gitBusy' })
+            return
+          }
+          try {
+            const rawBody = await readRequestBody(request)
+            const parsedBody = JSON.parse(rawBody) as { enabled?: unknown }
+            if (typeof parsedBody.enabled !== 'boolean') throw httpError(400, 'Tailscale enabled must be boolean')
+            if (parsedBody.enabled) {
+              const identity = await tailscaleIdentity()
+              if (!identity.tailscaleAvailable || identity.backendState !== 'Running') throw httpError(503, identity.error || 'Tailscale is not running')
+              tailscaleUrl = await enableGitBusyServe(identity.dnsName)
+              tailscaleEnabled = true
+              tailscalePairingCode = randomBytes(4).toString('hex').toUpperCase()
+              tailscaleSessions.clear()
+              const session = randomBytes(24).toString('hex')
+              tailscaleSessions.add(session)
+              setNetworkCookie(response, request, session)
+              sendJson(response, 200, { ...(await networkStatus(request)), pairingCode: tailscalePairingCode })
+            } else {
+              await disableGitBusyServe()
+              tailscaleEnabled = false
+              tailscaleUrl = ''
+              tailscalePairingCode = ''
+              tailscaleSessions.clear()
+              setNetworkCookie(response, request, '', true)
+              sendJson(response, 200, await networkStatus(request))
+            }
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Tailscale access could not be changed'
+            sendJson(response, errorStatus(error), { error: message })
+          }
+          return
+        }
+        if (url.pathname === '/api/network/pair') {
+          if (request.method !== 'POST') {
+            sendJson(response, 405, { error: 'Pairing requires POST' })
+            return
+          }
+          try {
+            if (!tailscaleEnabled || !tailscalePairingCode) throw httpError(400, 'Tailscale mobile access is not enabled')
+            const rawBody = await readRequestBody(request)
+            const parsedBody = JSON.parse(rawBody) as { code?: unknown }
+            const code = typeof parsedBody.code === 'string' ? parsedBody.code.trim().toUpperCase() : ''
+            if (!code || code !== tailscalePairingCode) throw httpError(401, 'That pairing code is not valid')
+            const session = randomBytes(24).toString('hex')
+            tailscaleSessions.add(session)
+            setNetworkCookie(response, request, session)
+            sendJson(response, 200, await networkStatus(request))
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'This device could not be paired'
+            sendJson(response, errorStatus(error), { error: message })
+          }
+          return
+        }
+        if (url.pathname.startsWith('/api/github/') && tailscaleEnabled && !isNetworkAuthenticated(request)) {
+          sendJson(response, 401, { error: 'Pair this device with the code shown in gitBusy Settings on the Mac' })
+          return
+        }
         if (!url.pathname.startsWith('/api/github/')) {
           next()
           return
@@ -515,6 +778,7 @@ export function githubProxy(): Plugin {
           sendJson(response, 502, { error: message })
         }
       })
+      void clearStaleGitBusyServe()
     },
   }
 }

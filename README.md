@@ -43,6 +43,12 @@ The Vite dev server calls `git credential fill` for `github.com`, keeps the cred
 
 The AI organize button runs a private, deterministic subject classifier today: it adds subject tags, groups Inbox repos by subject, and marks stale repos for review. A future local Ollama/LM Studio adapter can replace that classifier without changing the UI or local store.
 
+## Network access
+
+By default, gitBusy listens only on `127.0.0.1`, so GitHub data stays available only on the Mac. In Settings, **Enable Tailscale access** adds a tailnet-only HTTPS route at `/gitbusy` while leaving the local server on loopback. gitBusy reads the existing Tailscale Serve configuration and preserves unrelated routes. The Mac shows a one-time pairing code; a phone or tablet must enter that code before GitHub-backed API requests are allowed.
+
+The current local browser can continue using gitBusy without pairing. Tailscale access is disabled by default and was not enabled during development. Browser-local notes, favorites, tags, and selected folder files are still device-local; shared cross-device organization will require moving that state into a local SQLite-backed API in a later step.
+
 ## Checks run
 
 - `npm run build`

@@ -26,7 +26,7 @@ import { RepoDetail } from './components/RepoDetail'
 import { Sidebar } from './components/Sidebar'
 import { TagsPanel } from './components/TagsPanel'
 import { seedRepos, sectionMeta } from './data'
-import { fetchGithubExplore, fetchGithubRepo, fetchGithubRepos, fetchGithubSnapshot, mapGithubRepo, mergeGithubRepos, subjectsForRepo } from './github'
+import { fetchGithubExplore, fetchGithubRepo, fetchGithubRepos, fetchGithubSnapshot, fetchNetworkStatus, mapGithubRepo, mergeGithubRepos, pairNetwork, setTailscaleAccess, subjectsForRepo, type NetworkStatus } from './github'
 import type { ExploreKind } from './github'
 import type { DetailTab, Filter, Repo, Section } from './types'
 import './App.css'
@@ -119,6 +119,11 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(() => hashRoute().settings)
   const [toast, setToast] = useState('')
   const [publishOpen, setPublishOpen] = useState(false)
+  const [networkStatus, setNetworkStatus] = useState<NetworkStatus | null>(null)
+  const [networkPairingCode, setNetworkPairingCode] = useState('')
+  const [networkPairingInput, setNetworkPairingInput] = useState('')
+  const [networkBusy, setNetworkBusy] = useState(false)
+  const [networkError, setNetworkError] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
   const reposRef = useRef<Repo[]>(repos)
   const myReposLoadedRef = useRef(false)
@@ -131,6 +136,19 @@ function App() {
   useEffect(() => {
     reposRef.current = repos
   }, [repos])
+
+  useEffect(() => {
+    let cancelled = false
+    fetchNetworkStatus().then((status) => {
+      if (!cancelled) {
+        setNetworkStatus(status)
+        setNetworkPairingCode(status.pairingCode ?? '')
+      }
+    }).catch((error) => {
+      if (!cancelled) setNetworkError(error instanceof Error ? error.message : 'Network status could not be read')
+    })
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -450,6 +468,35 @@ function App() {
     }
   }
 
+  const handleTailscaleToggle = async (enabled: boolean) => {
+    if (networkBusy) return
+    setNetworkBusy(true)
+    setNetworkError('')
+    try {
+      const result = await setTailscaleAccess(enabled)
+      setNetworkStatus(result)
+      setNetworkPairingCode(result.pairingCode ?? '')
+      setToast(enabled ? `Mobile access ready at ${result.url}` : 'Tailscale mobile access stopped')
+    } catch (error) {
+      setNetworkError(error instanceof Error ? error.message : 'Tailscale access could not be changed')
+    } finally {
+      setNetworkBusy(false)
+    }
+  }
+
+  const handlePair = async () => {
+    if (networkBusy || !networkPairingInput.trim()) return
+    setNetworkBusy(true)
+    setNetworkError('')
+    try {
+      await pairNetwork(networkPairingInput)
+      window.location.reload()
+    } catch (error) {
+      setNetworkError(error instanceof Error ? error.message : 'This device could not be paired')
+      setNetworkBusy(false)
+    }
+  }
+
   const commitHashRoute = (nextHash: string, replace = false) => {
     if (window.location.hash === nextHash) return
     const method = replace ? 'replaceState' : 'pushState'
@@ -599,6 +646,7 @@ function App() {
         </main>
       </div>
 
+      {networkStatus?.tailscaleEnabled && !networkStatus.authenticated && <div className="network-pairing-overlay"><section className="network-pairing-panel" role="dialog" aria-modal="true" aria-labelledby="network-pairing-title"><span className="eyebrow">gitBusy mobile access</span><h2 id="network-pairing-title">Pair this device</h2><p>Enter the pairing code shown in gitBusy Settings on the Mac. GitHub data stays on that Mac.</p><form onSubmit={(event) => { event.preventDefault(); void handlePair() }}><label htmlFor="network-pairing-input">Pairing code</label><input id="network-pairing-input" value={networkPairingInput} onChange={(event) => setNetworkPairingInput(event.target.value)} autoComplete="off" autoCapitalize="characters" placeholder="AB12CD34" /><button className="button button--primary" type="submit" disabled={networkBusy || !networkPairingInput.trim()}>{networkBusy ? 'Pairing…' : 'Pair device'}</button></form>{networkError && <p className="settings-error" role="alert">{networkError}</p>}</section></div>}
       {toast && <div className="toast" role="status"><span className="toast__icon"><Check size={14} /></span>{toast}</div>}
 
       {showTags && <TagsPanel tags={tagStats} totalRepos={collectionRepos.length} activeTag={tagFilter} onSelect={selectTag} onClose={closeTags} />}
@@ -608,6 +656,7 @@ function App() {
         <section className="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
           <div className="settings-panel__header"><div><span className="eyebrow">Workspace</span><h2 id="settings-title">Settings</h2></div><a className="icon-button" href={activeSection === 'explore' ? `#explore/${exploreKind}` : `#${activeSection}`} onClick={closeSettings} onPointerUp={closeSettings} aria-label="Close settings"><X size={18} /></a></div>
           <div className="settings-panel__section"><span className="section-kicker">GitHub connection</span><div className="settings-status"><span className="context-banner__live-dot" /><div><strong>{dataSource === 'github' ? `Connected as ${accountLogin}` : 'Demo fallback'}</strong><p>{dataSource === 'github' ? 'Your starred repositories are loaded through the local bridge.' : githubError || 'No live GitHub snapshot yet.'}</p></div></div><button className="button button--primary button--small" type="button" onClick={handleSync} disabled={syncing}><RefreshCw className={syncing ? 'spin' : ''} size={14} /> {syncing ? 'Refreshing…' : 'Refresh stars'}</button></div>
+          <div className="settings-panel__section"><span className="section-kicker">Network access</span><p className="settings-copy">{networkStatus === null ? 'Checking Tailscale…' : networkStatus.tailscaleEnabled ? 'Mobile access is enabled through Tailscale. The GitHub bridge stays on this Mac.' : 'This Mac only. Enable Tailscale when you want to use gitBusy from a phone or tablet.'}</p>{networkStatus?.tailscaleEnabled && <div className="network-access-card"><span>Mobile URL</span><code>{networkStatus.url}</code>{networkPairingCode && <><span>Pairing code</span><strong className="network-pairing-code">{networkPairingCode}</strong><small>Open the URL on your mobile device and enter this code.</small></>}</div>}{(networkStatus?.error || networkError) && <p className="settings-error">{networkError || networkStatus?.error}</p>}<button className="button button--quiet button--small" type="button" onClick={() => void handleTailscaleToggle(!networkStatus?.tailscaleEnabled)} disabled={networkBusy || !networkStatus?.tailscaleAvailable}>{networkBusy ? 'Updating…' : networkStatus?.tailscaleEnabled ? 'Stop mobile access' : 'Enable Tailscale access'}</button></div>
           <div className="settings-panel__section"><span className="section-kicker">Local data</span><p className="settings-copy">Favorites, notes, and subject organization stay in this browser. GitHub credentials never enter the page.</p><div className="settings-list"><div><span>Stored repos</span><strong>{repos.length}</strong></div><div><span>Saved favorites</span><strong>{pinnedCount}</strong></div><div><span>Subjects available</span><strong>{subjects.length - 1}</strong></div></div></div>
           <div className="settings-panel__footer"><span className="private-note"><Settings2 size={13} /> gitBusy local workspace</span><button className="button button--quiet button--small" type="button" onClick={closeSettings}>Done</button></div>
         </section>

@@ -350,3 +350,25 @@ The application is now named `gitBusy` in the browser title, sidebar brand, loca
 The hamburger/X bug was a pointer-event race. Opening the menu on `pointerdown` mounted the backdrop before the same pointer sequence completed, so the follow-up event could immediately close it. The controls now use one click handler each, explicit hash/state synchronization, and a visible X whenever the drawer is open. The launcher browser-tab cleanup is bounded so an AppleScript hang cannot leave the applet resident and make later clicks appear dead.
 
 Verified in the deterministic local desktop preview: the hamburger changed the route to `#menu`, the X returned to the prior library route after the final race fix, and the repo-selection/README wait remained stable. The supplied recording path `/Users/ellannjohnson/Downloads/export-1788380277801.mp4` was not present on disk, so it was not used as verification. The responsive CSS stacks the workspace below 60rem, changes controls and folder panels to one column below 42rem, and preserves the mobile drawer/backdrop; a physical 375px click-through remains a separate browser-device test.
+
+---
+
+## 12. Tailscale mobile access
+
+The network option is implemented without changing the default bind. gitBusy continues to listen on `127.0.0.1:5174`. The Settings panel exposes **Enable Tailscale access**, which will add a tailnet-only HTTPS handler at `/gitbusy` through the installed Tailscale CLI. It reads and rewrites the current Serve JSON configuration while preserving unrelated handlers; it never uses `tailscale serve reset`.
+
+The Mac-side toggle is restricted to local requests. Enabling it verifies Tailscale is running, configures the scoped handler, generates a short pairing code, and gives the local browser an HttpOnly session cookie. A phone or tablet must enter that code at the remote pairing screen before any `/api/github/*` endpoint responds. Disabling the option removes only the gitBusy handler, clears sessions, and the app launcher sends the disable request before stopping the Vite process. A startup cleanup removes a stale gitBusy handler left by a crash.
+
+Tailscale status verification on 2026-09-02 returned `BackendState: Running`, host `1stTwentyFo`, and MagicDNS hostname `1sttwentyfo.tail8f79ff.ts.net`. Existing Serve routes were `/` to port 8787, `/grants` to port 8090, and port 8443 to the existing HTTPS development service. The gitBusy route was not enabled during this session, so those routes remain unchanged.
+
+The browser UI and API status checks are implemented and build-verified. Full remote-pairing verification remains pending because enabling the route would change the user's existing Tailscale configuration and EJ has not asked to turn it on yet. Browser-local notes, favorites, tags, projects, and selected File objects remain device-local until a later SQLite-backed shared-state feature.
+
+---
+
+## 13. Distribution and Apple account
+
+The distribution plan has two outputs from the same codebase. The Mac-user output is a `gitBusy.app` inside a ZIP or DMG. It should contain the production server/runtime and should not require Node or npm. The technical-user output is a source repository or source ZIP installed with `npm install`, `npm run setup`, and `npm run start`; `npm run dev` remains the development/HMR mode.
+
+A free Apple Account is enough to register as an Apple developer, access documentation and developer resources, download Xcode, and install/test personal builds through Xcode. It is not enough for the polished distribution capabilities needed for a broadly downloadable Mac app. Apple’s current official enrollment pages list the Apple Developer Program at 99 USD per membership year, with local-currency pricing. Membership is needed for Developer ID certificates and macOS notarization, as well as App Store Connect and TestFlight.
+
+Enrollment requires an Apple Account with two-factor authentication, legal-age eligibility, legal name, email, phone, and address. Individual enrollment lists the person’s legal name as the seller. Organization enrollment has additional legal-entity, authority, work-email, website, and D-U-N-S requirements. Until EJ chooses to enroll, gitBusy can be distributed as an unsigned ZIP or installed from source; macOS may show a Gatekeeper warning. No Apple Developer membership is required for the current local app or Tailscale implementation.

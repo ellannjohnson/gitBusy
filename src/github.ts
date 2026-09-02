@@ -172,3 +172,48 @@ export async function publishFolder(body: PublishFolderRequest): Promise<Publish
   if (!response.ok) throw new Error(payload.error || 'GitHub folder publish failed')
   return payload
 }
+
+export type NetworkStatus = {
+  tailscaleAvailable: boolean
+  backendState: string
+  hostName: string
+  dnsName: string
+  tailscaleEnabled: boolean
+  authenticated: boolean
+  url: string
+  pairingCode?: string
+  error?: string
+}
+
+export type NetworkToggleResult = NetworkStatus & {
+  pairingCode?: string
+}
+
+export async function fetchNetworkStatus(): Promise<NetworkStatus> {
+  const response = await fetch('/api/network/status')
+  const payload = await response.json() as NetworkStatus & { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'Network status request failed')
+  return payload
+}
+
+export async function setTailscaleAccess(enabled: boolean): Promise<NetworkToggleResult> {
+  const response = await fetch('/api/network/tailscale', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  })
+  const payload = await response.json() as NetworkToggleResult & { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'Tailscale access could not be changed')
+  return payload
+}
+
+export async function pairNetwork(code: string): Promise<NetworkStatus> {
+  const response = await fetch('/api/network/pair', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  })
+  const payload = await response.json() as NetworkStatus & { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'This device could not be paired')
+  return payload
+}

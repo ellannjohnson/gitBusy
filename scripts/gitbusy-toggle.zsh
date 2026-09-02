@@ -80,6 +80,7 @@ stop_server() {
   if [[ -f "$PID_FILE" ]]; then
     IFS= read -r pid < "$PID_FILE" || true
   fi
+  /usr/bin/curl -fsS --max-time 2 -X POST "$URL/api/network/tailscale" -H 'Content-Type: application/json' --data '{"enabled":false}' >/dev/null 2>&1 || true
   if is_ours "$pid" && kill -0 "$pid" 2>/dev/null; then
     /bin/kill "$pid" 2>/dev/null || true
     for _ in {1..20}; do
