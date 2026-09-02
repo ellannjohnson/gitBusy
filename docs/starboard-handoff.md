@@ -326,3 +326,15 @@ Current verification: `npm run build` passed; `npm run lint` passed with no warn
 The prior preview fallback was also removed: `selectedRepo` now resolves strictly by selected ID, with no first-repository fallback during collection reloads. The detail render remains guarded until the selected repository exists. The browser server was restarted after the source changes.
 
 The user’s explicit publish constraint overrides the original auto-init handoff plan: only the authenticated user may be the author and committer, and the new repository must contain only that one user-authored root commit. Do not send a real publish request until EJ explicitly approves it.
+
+---
+
+## 10. Verified preview identity fix
+
+Commit: `4774079 fix: preserve repo identity during detail fetch`
+
+The remaining preview failure came from the detail merge, not from the card click. The GitHub detail endpoint returns repository `id` as a number, while the library model stores IDs as strings. Spreading the detail response over a `Repo` replaced the string ID with the numeric ID. The next render could no longer satisfy `repo.id === selectedId`, so the selected preview unmounted and the selected-card state became invalid.
+
+The merge now compares IDs through `String(repo.id)` and writes the original normalized string ID, owner, and name back after applying detail metadata. The first-repo fallback remains removed, so a missing selection cannot silently become OpenCut.
+
+Live Helium verification on 2026-09-02: the Starboard tab was opened at `#library`, the `Tsitko/datasciencecoursera` card was clicked, the address changed to `#library/30251453`, the breadcrumb changed to `datasciencecourse`, the right preview showed `datasciencecourse`, and after a five-second README/detail wait the preview and library cards were still present. The native browser driver initially targeted Helium’s New Tab and a bookmark menu; that was a test-tool targeting error, not an app result.
