@@ -3,6 +3,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  Clock3,
   Command,
   Compass,
   FolderKanban,
@@ -48,15 +49,17 @@ function matchesActivity(repo: Repo, filter: ActivityFilter) {
 }
 
 function hashRoute() {
-  if (typeof window === 'undefined') return { section: 'library' as Section, kind: 'trending' as ExploreKind, menu: false, settings: false, tags: false }
+  if (typeof window === 'undefined') return { section: 'library' as Section, kind: 'trending' as ExploreKind, repoId: '', menu: false, settings: false, tags: false }
   const [section, kind] = window.location.hash.replace(/^#/, '').split('/')
   const validKinds: ExploreKind[] = ['trending', 'top', 'opensource', 'selfhosted']
   const isMenu = section === 'menu'
   const isSettings = section === 'settings'
   const isTags = section === 'tags'
+  const isCollection = section === 'library' || section === 'repos'
   return {
     section: section === 'projects' || section === 'repos' || section === 'releases' || section === 'explore' ? section as Section : 'library' as Section,
     kind: validKinds.includes(kind as ExploreKind) ? kind as ExploreKind : 'trending',
+    repoId: isCollection ? kind ?? '' : '',
     menu: isMenu,
     settings: isSettings,
     tags: isTags,
@@ -94,7 +97,7 @@ function App() {
   const [filtersOpen, setFiltersOpen] = useState(true)
   const [sortKey, setSortKey] = useState<SortKey>('updated')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [selectedId, setSelectedId] = useState(seedRepos[0].id)
+  const [selectedId, setSelectedId] = useState(() => hashRoute().repoId || seedRepos[0].id)
   const [detailTab, setDetailTab] = useState<DetailTab>('Overview')
   const [sidebarOpen, setSidebarOpen] = useState(() => hashRoute().menu)
   const [detailOpen, setDetailOpen] = useState(true)
@@ -114,6 +117,7 @@ function App() {
   const searchRef = useRef<HTMLInputElement>(null)
   const reposRef = useRef<Repo[]>(repos)
   const myReposLoadedRef = useRef(false)
+  const selectedIdRef = useRef(selectedId)
 
   useEffect(() => {
     window.localStorage.setItem('starboard-repos', JSON.stringify(repos))
@@ -130,7 +134,12 @@ function App() {
         const snapshot = await fetchGithubSnapshot()
         if (cancelled) return
         setRepos((current) => mergeGithubRepos(snapshot.repos, current))
-        setSelectedId((currentId) => snapshot.repos.some((repo) => String(repo.id) === currentId) ? currentId : String(snapshot.repos[0]?.id ?? currentId))
+        setSelectedId((currentId) => {
+          const preferred = selectedIdRef.current || currentId
+          const nextId = snapshot.repos.some((repo) => String(repo.id) === preferred) ? preferred : String(snapshot.repos[0]?.id ?? preferred)
+          selectedIdRef.current = nextId
+          return nextId
+        })
         setDetailError(false)
         setAccountLogin(snapshot.user.login)
         setDataSource('github')
@@ -159,7 +168,12 @@ function App() {
         const mapped = result.repos.map((repo) => mapGithubRepo(repo, currentByName.get(`${repo.owner}/${repo.name}`)))
         myReposLoadedRef.current = true
         setMyRepos(mapped)
-        setSelectedId((currentId) => mapped.some((repo) => repo.id === currentId) ? currentId : mapped[0]?.id ?? currentId)
+        setSelectedId((currentId) => {
+          const preferred = selectedIdRef.current || currentId
+          const nextId = mapped.some((repo) => repo.id === preferred) ? preferred : mapped[0]?.id ?? preferred
+          selectedIdRef.current = nextId
+          return nextId
+        })
       } catch (error) {
         myReposLoadedRef.current = false
         if (!cancelled) setMyReposError(error instanceof Error ? error.message : 'My repos could not be loaded')
@@ -181,6 +195,12 @@ function App() {
       setSidebarOpen(route.menu)
       setSettingsOpen(route.settings)
       setTagsOpen(route.tags)
+      if (route.repoId) {
+        selectedIdRef.current = route.repoId
+        setSelectedId(route.repoId)
+        setDetailOpen(true)
+        setDetailTab('Overview')
+      }
     }
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
@@ -227,7 +247,7 @@ function App() {
     collectionRepos.forEach((repo) => new Set(repo.tags).forEach((tag) => counts.set(tag, (counts.get(tag) ?? 0) + 1)))
     return Array.from(counts.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => ({ label, count }))
   }, [collectionRepos])
-  const selectedRepo = repos.find((repo) => repo.id === selectedId) ?? myRepos.find((repo) => repo.id === selectedId) ?? collectionRepos[0]
+  const selectedRepo = collectionRepos.find((repo) => repo.id === selectedId) ?? repos.find((repo) => repo.id === selectedId) ?? myRepos.find((repo) => repo.id === selectedId) ?? collectionRepos[0]
   const meta = sectionMeta[activeSection]
 
   useEffect(() => {
@@ -368,6 +388,17 @@ function App() {
     }, 650)
   }
 
+  const selectRepo = (repoId: string) => {
+    selectedIdRef.current = repoId
+    setSelectedId(repoId)
+    setDetailTab('Overview')
+    setDetailOpen(true)
+    setDetailError(false)
+    setDetailLoading(false)
+    const repoHash = activeSection === 'repos' ? `#repos/${repoId}` : `#library/${repoId}`
+    if (window.location.hash !== repoHash) window.history.pushState(null, '', repoHash)
+  }
+
   const runCommand = (command: string) => {
     if (command === 'search') {
       setCommandOpen(false)
@@ -384,10 +415,7 @@ function App() {
     }
     if (command === 'first') {
       setCommandOpen(false)
-      setSelectedId(repos[0].id)
-      setDetailOpen(true)
-      setDetailError(false)
-      setDetailLoading(false)
+      selectRepo(repos[0].id)
       setDetailTab('Overview')
     }
   }
@@ -423,11 +451,11 @@ function App() {
   return (
     <div className="app-shell">
       {sidebarOpen && <button className="sidebar-backdrop" type="button" onClick={closeSidebar} onPointerUp={closeSidebar} aria-label="Close navigation overlay" />}
-      <Sidebar activeSection={activeSection} onNavigate={setActiveSection} pinnedCount={pinnedCount} reviewCount={reviewCount} accountLogin={accountLogin} dataSource={dataSource} repos={repos} selectedId={selectedId} onSelectRepo={(repoId) => { setSelectedId(repoId); setDetailTab('Overview'); setDetailOpen(true); closeSidebar(); setDetailError(false); setDetailLoading(false) }} onFilterChange={setFilter} onOpenTags={() => { setTagsOpen(true); setActiveSection('library') }} onSettings={() => { setSettingsOpen(true); closeSidebar() }} sidebarOpen={sidebarOpen} onClose={closeSidebar} />
+      <Sidebar activeSection={activeSection} onNavigate={setActiveSection} pinnedCount={pinnedCount} reviewCount={reviewCount} accountLogin={accountLogin} dataSource={dataSource} repos={repos} selectedId={selectedId} onSelectRepo={(repoId) => { selectRepo(repoId); closeSidebar() }} onFilterChange={setFilter} onOpenTags={() => { setTagsOpen(true); setActiveSection('library') }} onSettings={() => { setSettingsOpen(true); closeSidebar() }} sidebarOpen={sidebarOpen} onClose={closeSidebar} />
       <div className="app-content">
         <header className="topbar">
           <a className="icon-button menu-button" href="#menu" onClick={() => setSidebarOpen(true)} onPointerUp={() => setSidebarOpen(true)} aria-label="Open navigation" aria-expanded={sidebarOpen}><Menu size={19} /></a>
-          <div className="breadcrumbs"><span>Starboard</span><ChevronRight size={14} /><strong>{meta.title}</strong></div>
+          <div className="breadcrumbs"><span>Starboard</span><ChevronRight size={14} /><strong>{meta.title}</strong><span className="breadcrumbs__selection"><ChevronRight size={14} />{selectedRepo.name}</span></div>
           <div className="topbar__actions">
             <button className="command-button" type="button" onClick={() => setCommandOpen(true)}><Command size={14} /><span>Quick find</span><kbd>⌘ K</kbd></button>
             <button className={`icon-button ${filtersOpen ? 'icon-button--active' : ''}`} type="button" onClick={() => setFiltersOpen((open) => !open)} aria-label="Toggle filters" aria-expanded={filtersOpen} title="Filters"><SlidersHorizontal size={17} /></button>
@@ -463,8 +491,9 @@ function App() {
           {activeSection !== 'explore' && <div className="discovery-strip"><span className="discovery-strip__label">Browse GitHub</span>{exploreLinks.map((link) => <a className="discovery-link" href={`#explore/${link.id}`} key={link.id} onClick={() => { setExploreKind(link.id); setActiveSection('explore') }}>{link.label}<ChevronRight size={14} /></a>)}</div>}
 
           {activeSection === 'repos' && <div className="context-banner"><FolderIcon /> {myReposLoading ? 'Loading repositories you own from GitHub…' : myReposError ? `My repos could not load: ${myReposError}` : `${myRepos.length} repositories owned by ${accountLogin}.`}</div>}
+          {filter === 'Needs review' && <div className="context-banner"><Clock3 size={16} /> Needs review is a local queue for repos you or the organizer marked for a second look. Stale 90d+ repos are added here; archived repos stay separate.</div>}
           {activeSection === 'projects' && <div className="context-banner"><FolderIcon /> Showing the <strong>Daily driver</strong> project · change the project model in the local store.</div>}
-          {activeSection === 'releases' && <div className="context-banner"><PackageIcon /> Showing repos with a release in the current snapshot.</div>}
+          {activeSection === 'releases' && <div className="context-banner"><PackageIcon /> Release watchlist · latest release metadata loads when a repo preview is opened.</div>}
           {activeSection === 'explore' && <div className="context-banner"><CompassIcon /> GitHub-wide rankings, not a filtered copy of your library · matches are marked <strong>In library</strong>.</div>}
 
           {activeSection === 'explore' && <ExploreShelf kind={exploreKind} repos={exploreRepos} loading={exploreLoading} error={dataSource === 'github' ? exploreError : 'GitHub data is still connecting.'} onKindChange={setExploreKind} onSave={saveExploreRepo} onRetry={() => setExploreReload((value) => value + 1)} />}
@@ -507,7 +536,7 @@ function App() {
                 <div className="empty-state"><div className="empty-state__icon"><X size={21} /></div><h2>My repos could not load</h2><p>{myReposError}</p><button className="button button--quiet" type="button" onClick={() => setMyReposReload((value) => value + 1)}>Retry</button></div>
               ) : visibleRepos.length > 0 ? (
                 <div className={`repo-grid repo-grid--${viewMode}`}>
-                  {visibleRepos.map((repo) => <RepoCard key={repo.id} repo={repo} selected={repo.id === selectedId} viewMode={viewMode} onSelect={() => { setSelectedId(repo.id); setDetailTab('Overview'); setDetailOpen(true); setDetailError(false); setDetailLoading(false) }} onTogglePinned={() => togglePinned(repo.id)} />)}
+                  {visibleRepos.map((repo) => <RepoCard key={repo.id} repo={repo} selected={repo.id === selectedId} viewMode={viewMode} href={activeSection === 'repos' ? `#repos/${repo.id}` : `#library/${repo.id}`} onSelect={() => selectRepo(repo.id)} onTogglePinned={() => togglePinned(repo.id)} />)}
                 </div>
               ) : (
                 <div className="empty-state">

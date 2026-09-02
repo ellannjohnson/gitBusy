@@ -276,6 +276,20 @@
   font-weight: 600;
 }
 
+.breadcrumbs__selection {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.55rem;
+  max-width: 18ch;
+  overflow: hidden;
+  color: var(--color-ink-soft);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .topbar__actions {
   gap: 0.7rem;
 }

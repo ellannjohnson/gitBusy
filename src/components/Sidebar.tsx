@@ -101,7 +101,7 @@ export function Sidebar({ activeSection, onNavigate, pinnedCount, reviewCount, a
 
       <div className="sidebar__label sidebar__label--repos">Starred repos</div>
       <div className="sidebar__repo-list" aria-label="Starred repositories">
-        {repos.slice(0, 8).map((repo) => <button className={repo.id === selectedId ? 'sidebar-repo sidebar-repo--active' : 'sidebar-repo'} type="button" key={repo.id} onClick={() => onSelectRepo(repo.id)} title={`${repo.owner}/${repo.name}`}><span className="sidebar-repo__dot" style={{ backgroundColor: repo.languageColor }} /><span className="sidebar-repo__copy"><strong>{repo.name}</strong><small>{repo.owner}</small></span></button>)}
+        {repos.slice(0, 8).map((repo) => <button className={repo.id === selectedId ? 'sidebar-repo sidebar-repo--active' : 'sidebar-repo'} type="button" key={repo.id} onPointerDown={() => onSelectRepo(repo.id)} onClick={() => onSelectRepo(repo.id)} title={`${repo.owner}/${repo.name}`}><span className="sidebar-repo__dot" style={{ backgroundColor: repo.languageColor }} /><span className="sidebar-repo__copy"><strong>{repo.name}</strong><small>{repo.owner}</small></span></button>)}
         <button className="sidebar-repo-more" type="button" onClick={() => { onNavigate('library'); onClose() }}>See all {repos.length} repos <ArrowUpRight size={13} /></button>
       </div>
 

@@ -7,6 +7,7 @@ type RepoCardProps = {
   viewMode: 'grid' | 'list'
   onSelect: () => void
   onTogglePinned: () => void
+  href: string
 }
 
 function statusIcon(status: Repo['status']) {
@@ -22,10 +23,10 @@ function compactNumber(value?: number) {
   return String(value)
 }
 
-export function RepoCard({ repo, selected, viewMode, onSelect, onTogglePinned }: RepoCardProps) {
+export function RepoCard({ repo, selected, viewMode, onSelect, onTogglePinned, href }: RepoCardProps) {
   return (
     <article className={`repo-card repo-card--${viewMode} ${selected ? 'repo-card--selected' : ''}`}>
-      <button className="repo-card__body" type="button" onClick={onSelect} aria-label={`Open ${repo.owner}/${repo.name}`}>
+      <a className="repo-card__body" href={href} onPointerDown={onSelect} onClick={onSelect} aria-label={`Open ${repo.owner}/${repo.name}`}>
         <div className="repo-card__topline">
           <span className="repo-card__source"><GitFork size={14} /> {repo.owner}</span>
           <span className={`repo-status repo-status--${repo.status.toLowerCase().replace(' ', '-')}`}>
@@ -48,7 +49,7 @@ export function RepoCard({ repo, selected, viewMode, onSelect, onTogglePinned }:
         <div className="tag-row">
           {repo.tags.map((tag) => <span className="tag" key={tag}>{tag}</span>)}
         </div>
-      </button>
+      </a>
       <div className="repo-card__actions">
         <button className={`card-action ${repo.isPinned ? 'card-action--active' : ''}`} type="button" onClick={onTogglePinned} aria-pressed={repo.isPinned} aria-label={repo.isPinned ? `Remove ${repo.name} from favorites` : `Add ${repo.name} to favorites`} title={repo.isPinned ? 'Remove favorite' : 'Add favorite'}>
           {repo.isPinned ? <Star size={15} fill="currentColor" /> : <Star size={15} />}

@@ -344,6 +344,7 @@
   text-align: start;
   background: transparent;
   border: 0;
+  text-decoration: none;
 }
 
 .repo-card__body:focus-visible {
