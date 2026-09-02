@@ -1,0 +1,66 @@
+/* Hallmark · macrostructure: Workbench · theme: Studio · tone: technical · anchor hue: terracotta */
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  --color-canvas: oklch(95.8% 0.018 76);
+  --color-surface: oklch(99.2% 0.008 80);
+  --color-surface-raised: oklch(100% 0 0);
+  --color-surface-warm: oklch(93.8% 0.026 78);
+  --color-ink: oklch(22.5% 0.025 112);
+  --color-ink-soft: oklch(31.5% 0.026 110);
+  --color-muted: oklch(52.5% 0.026 105);
+  --color-faint: oklch(67% 0.022 100);
+  --color-line: oklch(87.5% 0.022 80);
+  --color-line-strong: oklch(78% 0.028 76);
+  --color-sidebar: oklch(23.5% 0.026 111);
+  --color-sidebar-raised: oklch(29% 0.025 111);
+  --color-sidebar-ink: oklch(94% 0.012 82);
+  --color-sidebar-muted: oklch(68% 0.021 100);
+  --color-accent: oklch(58% 0.16 42);
+  --color-accent-dark: oklch(48% 0.14 40);
+  --color-accent-wash: oklch(91.5% 0.047 45);
+  --color-accent-line: oklch(79% 0.10 44);
+  --color-success: oklch(56% 0.13 151);
+  --color-success-wash: oklch(91% 0.041 150);
+  --color-warning: oklch(62% 0.13 76);
+  --color-warning-wash: oklch(92% 0.052 79);
+  --color-danger: oklch(55% 0.16 24);
+  --color-danger-wash: oklch(92% 0.042 24);
+  --color-shadow: 0 22px 60px rgba(35, 30, 21, 0.14), 0 4px 18px rgba(35, 30, 21, 0.08);
+  --color-shadow-soft: 0 10px 28px rgba(35, 30, 21, 0.08);
+
+  --font-display: 'DM Serif Display', Iowan Old Style, Baskerville, serif;
+  --font-body: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 1rem;
+  --text-md: 1.125rem;
+  --text-lg: 1.375rem;
+  --text-xl: 1.75rem;
+  --text-2xl: clamp(2.4rem, 4vw, 4rem);
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-pill: 999px;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur-state: 180ms;
+  --dur-enter: 280ms;
+}
