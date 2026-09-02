@@ -395,3 +395,17 @@ https://github.com/ellannjohnson/gitBusy/releases/download/v0.1.0/SHA256SUMS.txt
 ```
 
 The DMG and app ZIP contain the bundled arm64 Node runtime, complete Vite dependencies, portable bundle launcher, and `INSTALL.md`. The source ZIP omits `node_modules` and requires `npm install`. Checksums pass from the release directory, the DMG mounts with `gitBusy.app` and `INSTALL.md`, the portable app launched from `/tmp` and served `/api/network/status`, and its second launch stopped the server cleanly. This is an unsigned Apple Silicon preview because EJ does not currently have paid Apple Developer membership. No GitHub publish-folder operation was performed by gitBusy.
+
+---
+
+## 15. v0.1.1 release correction
+
+The original `v0.1.0` DMG was missing the `/Applications` alias, and its Tailscale writer passed the CLI arguments in the wrong order. The installed Tailscale 1.102.3 CLI requires `tailscale serve set-config --all <filename>`, not `tailscale serve set-config <filename> --all`. The corrected source uses the accepted order and preserves all existing Serve handlers.
+
+The corrected private prerelease is `v0.1.1`, tagged at commit `40310f4 fix: repair Tailscale config and DMG installer layout`. Its DMG contains `gitBusy.app`, `INSTALL.md`, and an `Applications` symlink targeting `/Applications`. It reports bundle version 0.1.1, includes the fixed writer, and the mounted DMG/checksum checks passed. Download the corrected DMG rather than the original v0.1.0 DMG:
+
+```text
+https://github.com/ellannjohnson/gitBusy/releases/download/v0.1.1/gitBusy-macos-arm64-v0.1.1.dmg
+```
+
+The app remains opt-in for Tailscale. It was not enabled during this correction, so the existing `/`, `/grants`, and `:8443` routes were not changed.
