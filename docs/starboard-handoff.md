@@ -421,3 +421,18 @@ These instructions are included in the corrected private `v0.1.2` prerelease, ta
 ```text
 https://github.com/ellannjohnson/gitBusy/releases/download/v0.1.2/gitBusy-macos-arm64-v0.1.2.dmg
 ```
+
+---
+
+## 17. v0.1.3 Tailscale and README correction
+
+EJ reported the live error `could not read config from file ... unknown object member name "TCP"`. The cause was passing the legacy `tailscale serve status --json` object into the newer `serve set-config` command. The corrected implementation no longer calls `set-config`; it uses the installed CLI’s scoped legacy commands: `tailscale serve --yes --bg --https=443 --set-path=/gitbusy http://127.0.0.1:5174` to enable and the same path flags with `off` to disable.
+
+A live enable/disable test passed on 2026-09-02. `/gitbusy` appeared alongside the existing `/` and `/grants` handlers, then the disable action removed only `/gitbusy` and restored the original route map exactly. The corrected private prerelease is tagged at `bf70f5e`:
+
+```text
+https://github.com/ellannjohnson/gitBusy/releases/tag/v0.1.3
+https://github.com/ellannjohnson/gitBusy/releases/download/v0.1.3/gitBusy-macos-arm64-v0.1.3.dmg
+```
+
+The README and DMG `INSTALL.md` now explain that Tailscale Personal is free for personal, non-commercial use, how to sign up, install Tailscale on the Mac and phone, use the same account, enable HTTPS certificates, enable gitBusy mobile access, enter the pairing code, and stop the route. Tailscale remains disabled after verification, and unrelated existing routes remain intact.
