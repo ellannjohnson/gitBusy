@@ -19,8 +19,12 @@ export type Repo = {
   readme: string[]
   files: string[]
   lastRelease: string
+  starsCount?: number
+  forksCount?: number
+  license?: string
+  inLibrary?: boolean
 }
 
-export type Section = 'library' | 'projects' | 'explore' | 'releases'
+export type Section = 'library' | 'repos' | 'projects' | 'explore' | 'releases'
 export type Filter = 'All' | 'Favorites' | 'Needs review' | 'Archived'
 export type DetailTab = 'Overview' | 'Files' | 'Notes'

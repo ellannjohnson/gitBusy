@@ -15,6 +15,13 @@ function statusIcon(status: Repo['status']) {
   return <span className="status-dot" />
 }
 
+function compactNumber(value?: number) {
+  if (value === undefined) return ''
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}m`
+  if (value >= 1000) return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}k`
+  return String(value)
+}
+
 export function RepoCard({ repo, selected, viewMode, onSelect, onTogglePinned }: RepoCardProps) {
   return (
     <article className={`repo-card repo-card--${viewMode} ${selected ? 'repo-card--selected' : ''}`}>
@@ -33,6 +40,7 @@ export function RepoCard({ repo, selected, viewMode, onSelect, onTogglePinned }:
         <p className="repo-card__summary">{repo.summary}</p>
         <div className="repo-card__meta">
           <span className="language"><span className="language__dot" style={{ backgroundColor: repo.languageColor }} />{repo.language}</span>
+          {repo.starsCount !== undefined && <span><Star size={13} /> {compactNumber(repo.starsCount)}</span>}
           <span><Clock3 size={13} /> Updated {repo.updated}</span>
           <span className="repo-project">{repo.project}</span>
         </div>

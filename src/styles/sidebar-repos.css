@@ -1,0 +1,90 @@
+/* Compact starred-repo rail */
+.sidebar__label--repos {
+  margin-block-start: 1.5rem;
+}
+
+.sidebar__repo-list {
+  display: grid;
+  max-height: 224px;
+  gap: 0.15rem;
+  overflow-y: auto;
+  scrollbar-color: var(--color-sidebar-raised) transparent;
+}
+
+.sidebar-repo {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 34px;
+  gap: 0.55rem;
+  padding: 0.25rem 0.55rem;
+  color: var(--color-sidebar-muted);
+  text-align: start;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+
+.sidebar-repo:hover,
+.sidebar-repo--active {
+  color: var(--color-sidebar-ink);
+  background: var(--color-sidebar-raised);
+  border-color: color-mix(in oklch, var(--color-sidebar-ink) 10%, transparent);
+}
+
+.sidebar-repo__dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.sidebar-repo__copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
+}
+
+.sidebar-repo__copy strong,
+.sidebar-repo__copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-repo__copy strong {
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.sidebar-repo__copy small {
+  color: var(--color-sidebar-muted);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+}
+
+.sidebar-repo-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 32px;
+  padding: 0.25rem 0.55rem;
+  color: var(--color-accent-wash);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  text-align: start;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+
+.sidebar-repo-more:hover {
+  color: var(--color-sidebar-ink);
+  background: var(--color-sidebar-raised);
+}
+
+.sidebar-backdrop {
+  display: none;
+}

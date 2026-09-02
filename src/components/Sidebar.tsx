@@ -1,6 +1,8 @@
 import {
   Archive,
+  ArrowUpRight,
   Compass,
+  FolderGit2,
   FolderKanban,
   GitFork,
   Library,
@@ -11,7 +13,7 @@ import {
   Tags,
   X,
 } from 'lucide-react'
-import type { Section } from '../types'
+import type { Filter, Repo, Section } from '../types'
 
 type SidebarProps = {
   activeSection: Section
@@ -20,18 +22,25 @@ type SidebarProps = {
   reviewCount: number
   accountLogin: string
   dataSource: 'github' | 'demo'
+  repos: Repo[]
+  selectedId: string
+  onSelectRepo: (repoId: string) => void
+  onFilterChange: (filter: Filter) => void
+  onOpenFilters: () => void
+  onSettings: () => void
   sidebarOpen: boolean
   onClose: () => void
 }
 
 const primaryItems: Array<{ id: Section; label: string; icon: typeof Library }> = [
   { id: 'library', label: 'Library', icon: Library },
+  { id: 'repos', label: 'My repos', icon: FolderGit2 },
   { id: 'projects', label: 'Projects', icon: FolderKanban },
   { id: 'explore', label: 'Explore', icon: Compass },
   { id: 'releases', label: 'Releases', icon: PackageOpen },
 ]
 
-export function Sidebar({ activeSection, onNavigate, pinnedCount, reviewCount, accountLogin, dataSource, sidebarOpen, onClose }: SidebarProps) {
+export function Sidebar({ activeSection, onNavigate, pinnedCount, reviewCount, accountLogin, dataSource, repos, selectedId, onSelectRepo, onFilterChange, onOpenFilters, onSettings, sidebarOpen, onClose }: SidebarProps) {
   return (
     <aside className={`sidebar ${sidebarOpen ? 'sidebar--open' : ''}`} aria-label="Primary navigation">
       <div className="sidebar__topline">
@@ -39,9 +48,9 @@ export function Sidebar({ activeSection, onNavigate, pinnedCount, reviewCount, a
           <span className="brand__mark" aria-hidden="true"><Sparkles size={16} strokeWidth={2.4} /></span>
           <span>starboard</span>
         </a>
-        <button className="icon-button sidebar__close" type="button" onClick={onClose} aria-label="Close navigation">
+        <a className="icon-button sidebar__close" href="#library" onClick={onClose} onPointerUp={onClose} aria-label="Close navigation">
           <X size={18} />
-        </button>
+        </a>
       </div>
 
       <div className="sidebar__account">
@@ -50,45 +59,51 @@ export function Sidebar({ activeSection, onNavigate, pinnedCount, reviewCount, a
           <strong>{accountLogin}</strong>
           <span>{dataSource === 'github' ? 'GitHub account' : 'local demo'}</span>
         </div>
-        <button className="icon-button sidebar__settings" type="button" aria-label="Open settings" title="Settings">
+        <a className="icon-button sidebar__settings" href="#settings" onClick={onSettings} onPointerUp={onSettings} aria-label="Open settings" title="Settings">
           <Settings2 size={16} />
-        </button>
+        </a>
       </div>
 
       <div className="sidebar__label">Workspace</div>
       <nav className="sidebar__nav">
         {primaryItems.map(({ id, label, icon: Icon }) => (
-          <button
+          <a
             className={`nav-item ${activeSection === id ? 'nav-item--active' : ''}`}
+            href={id === 'explore' ? '#explore/trending' : `#${id}`}
             key={id}
-            type="button"
             onClick={() => { onNavigate(id); onClose() }}
             aria-current={activeSection === id ? 'page' : undefined}
           >
             <Icon size={17} strokeWidth={1.9} />
             <span>{label}</span>
             {id === 'releases' && <span className="nav-item__dot" aria-label="New releases" />}
-          </button>
+          </a>
         ))}
       </nav>
 
       <div className="sidebar__label sidebar__label--filters">Saved views</div>
       <nav className="sidebar__nav">
-        <button className="nav-item" type="button" onClick={() => { onNavigate('library'); onClose() }}>
+        <button className="nav-item" type="button" onClick={() => { onNavigate('library'); onFilterChange('Favorites'); onClose() }}>
           <Star size={17} strokeWidth={1.9} />
           <span>Favorites</span>
           <span className="nav-item__count">{pinnedCount}</span>
         </button>
-        <button className="nav-item" type="button" onClick={() => { onNavigate('library'); onClose() }}>
+        <button className="nav-item" type="button" onClick={() => { onNavigate('library'); onFilterChange('Needs review'); onClose() }}>
           <Archive size={17} strokeWidth={1.9} />
           <span>Needs review</span>
           <span className="nav-item__count">{reviewCount}</span>
         </button>
-        <button className="nav-item" type="button" onClick={() => { onNavigate('library'); onClose() }}>
+        <button className="nav-item" type="button" onClick={() => { onNavigate('library'); onOpenFilters(); onClose() }}>
           <Tags size={17} strokeWidth={1.9} />
           <span>All tags</span>
         </button>
       </nav>
+
+      <div className="sidebar__label sidebar__label--repos">Starred repos</div>
+      <div className="sidebar__repo-list" aria-label="Starred repositories">
+        {repos.slice(0, 8).map((repo) => <button className={repo.id === selectedId ? 'sidebar-repo sidebar-repo--active' : 'sidebar-repo'} type="button" key={repo.id} onClick={() => onSelectRepo(repo.id)} title={`${repo.owner}/${repo.name}`}><span className="sidebar-repo__dot" style={{ backgroundColor: repo.languageColor }} /><span className="sidebar-repo__copy"><strong>{repo.name}</strong><small>{repo.owner}</small></span></button>)}
+        <button className="sidebar-repo-more" type="button" onClick={() => { onNavigate('library'); onClose() }}>See all {repos.length} repos <ArrowUpRight size={13} /></button>
+      </div>
 
       <div className="sidebar__spacer" />
       <div className="sidebar__footer">

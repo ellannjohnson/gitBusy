@@ -12,21 +12,53 @@ import {
   PackageOpen,
   RefreshCw,
   Search,
+  Settings2,
   SlidersHorizontal,
   Sparkles,
   X,
 } from 'lucide-react'
+import { ExploreShelf } from './components/ExploreShelf'
 import { RepoCard } from './components/RepoCard'
 import { RepoDetail } from './components/RepoDetail'
 import { Sidebar } from './components/Sidebar'
 import { seedRepos, sectionMeta } from './data'
-import { fetchGithubRepo, fetchGithubSnapshot, mergeGithubRepos } from './github'
+import { fetchGithubExplore, fetchGithubRepo, fetchGithubRepos, fetchGithubSnapshot, mapGithubRepo, mergeGithubRepos, subjectsForRepo } from './github'
+import type { ExploreKind } from './github'
 import type { DetailTab, Filter, Repo, Section } from './types'
 import './App.css'
 
 type SortKey = 'updated' | 'name' | 'project'
+type ActivityFilter = 'All activity' | 'Updated this week' | 'Updated this month' | 'Stale 90d+'
 
 const filterOptions: Filter[] = ['All', 'Favorites', 'Needs review', 'Archived']
+const exploreLinks: Array<{ id: ExploreKind; label: string }> = [
+  { id: 'trending', label: 'Trending now' },
+  { id: 'top', label: 'Top 20' },
+  { id: 'opensource', label: 'Open source' },
+  { id: 'selfhosted', label: 'Self-hosted' },
+]
+
+function matchesActivity(repo: Repo, filter: ActivityFilter) {
+  if (filter === 'All activity') return true
+  const ageInDays = repo.updatedAt > 1_000_000_000_000 ? (Date.now() - repo.updatedAt) / 86_400_000 : repo.updatedAt
+  if (filter === 'Updated this week') return ageInDays <= 7
+  if (filter === 'Updated this month') return ageInDays <= 30
+  return ageInDays >= 90
+}
+
+function hashRoute() {
+  if (typeof window === 'undefined') return { section: 'library' as Section, kind: 'trending' as ExploreKind, menu: false, settings: false }
+  const [section, kind] = window.location.hash.replace(/^#/, '').split('/')
+  const validKinds: ExploreKind[] = ['trending', 'top', 'opensource', 'selfhosted']
+  const isMenu = section === 'menu'
+  const isSettings = section === 'settings'
+  return {
+    section: section === 'projects' || section === 'repos' || section === 'releases' || section === 'explore' ? section as Section : 'library' as Section,
+    kind: validKinds.includes(kind as ExploreKind) ? kind as ExploreKind : 'trending',
+    menu: isMenu,
+    settings: isSettings,
+  }
+}
 
 function loadRepos() {
   if (typeof window === 'undefined') return seedRepos
@@ -40,18 +72,26 @@ function loadRepos() {
 
 function App() {
   const [repos, setRepos] = useState<Repo[]>(loadRepos)
+  const [myRepos, setMyRepos] = useState<Repo[]>([])
+  const [myReposLoading, setMyReposLoading] = useState(false)
+  const [myReposError, setMyReposError] = useState('')
+  const [myReposReload, setMyReposReload] = useState(0)
   const [dataSource, setDataSource] = useState<'github' | 'demo'>('demo')
   const [accountLogin, setAccountLogin] = useState('ellannjohnson')
   const [githubError, setGithubError] = useState('')
-  const [activeSection, setActiveSection] = useState<Section>('library')
+  const [activeSection, setActiveSection] = useState<Section>(() => hashRoute().section)
   const [filter, setFilter] = useState<Filter>('All')
   const [query, setQuery] = useState('')
   const [language, setLanguage] = useState('All languages')
+  const [subjectFilter, setSubjectFilter] = useState('All subjects')
+  const [projectFilter, setProjectFilter] = useState('All projects')
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>('All activity')
+  const [filtersOpen, setFiltersOpen] = useState(true)
   const [sortKey, setSortKey] = useState<SortKey>('updated')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selectedId, setSelectedId] = useState(seedRepos[0].id)
   const [detailTab, setDetailTab] = useState<DetailTab>('Overview')
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(() => hashRoute().menu)
   const [detailOpen, setDetailOpen] = useState(true)
   const [commandOpen, setCommandOpen] = useState(false)
   const [commandQuery, setCommandQuery] = useState('')
@@ -59,6 +99,12 @@ function App() {
   const [syncing, setSyncing] = useState(true)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState(false)
+  const [exploreKind, setExploreKind] = useState<ExploreKind>(() => hashRoute().kind)
+  const [exploreRepos, setExploreRepos] = useState<Repo[]>([])
+  const [exploreLoading, setExploreLoading] = useState(false)
+  const [exploreError, setExploreError] = useState('')
+  const [exploreReload, setExploreReload] = useState(0)
+  const [settingsOpen, setSettingsOpen] = useState(() => hashRoute().settings)
   const [toast, setToast] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -90,6 +136,43 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (activeSection !== 'repos' || dataSource !== 'github') return
+    let cancelled = false
+    const loadMyRepos = async () => {
+      setMyReposLoading(true)
+      setMyReposError('')
+      try {
+        const result = await fetchGithubRepos()
+        if (cancelled) return
+        const currentByName = new Map(repos.map((repo) => [`${repo.owner}/${repo.name}`, repo]))
+        const mapped = result.repos.map((repo) => mapGithubRepo(repo, currentByName.get(`${repo.owner}/${repo.name}`)))
+        setMyRepos(mapped)
+        setSelectedId((currentId) => mapped.some((repo) => repo.id === currentId) ? currentId : mapped[0]?.id ?? currentId)
+      } catch (error) {
+        if (!cancelled) setMyReposError(error instanceof Error ? error.message : 'My repos could not be loaded')
+      } finally {
+        if (!cancelled) setMyReposLoading(false)
+      }
+    }
+    void loadMyRepos()
+    return () => { cancelled = true }
+  }, [activeSection, dataSource, myReposReload, repos])
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const route = hashRoute()
+      if (!route.menu && !route.settings) {
+        setActiveSection(route.section)
+        setExploreKind(route.kind)
+      }
+      setSidebarOpen(route.menu)
+      setSettingsOpen(route.settings)
+    }
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement
       const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA'
@@ -116,11 +199,16 @@ function App() {
     return () => window.clearTimeout(timeout)
   }, [toast])
 
+  const collectionRepos = activeSection === 'repos' ? myRepos : repos
   const pinnedCount = repos.filter((repo) => repo.isPinned).length
-  const activeCount = repos.filter((repo) => repo.status === 'Active').length
-  const reviewCount = repos.filter((repo) => repo.status === 'Needs review').length
-  const languages = useMemo(() => ['All languages', ...Array.from(new Set(repos.map((repo) => repo.language)))], [repos])
-  const selectedRepo = repos.find((repo) => repo.id === selectedId) ?? repos[0]
+  const activeCount = collectionRepos.filter((repo) => repo.status === 'Active').length
+  const reviewCount = collectionRepos.filter((repo) => repo.status === 'Needs review').length
+  const collectionPinnedCount = collectionRepos.filter((repo) => repo.isPinned).length
+  const collectionArchivedCount = collectionRepos.filter((repo) => repo.status === 'Archived').length
+  const languages = useMemo(() => ['All languages', ...Array.from(new Set(collectionRepos.map((repo) => repo.language)))], [collectionRepos])
+  const subjects = useMemo(() => ['All subjects', ...Array.from(new Set(collectionRepos.flatMap((repo) => subjectsForRepo(repo))))], [collectionRepos])
+  const projects = useMemo(() => ['All projects', ...Array.from(new Set(collectionRepos.map((repo) => repo.project)))], [collectionRepos])
+  const selectedRepo = repos.find((repo) => repo.id === selectedId) ?? myRepos.find((repo) => repo.id === selectedId) ?? collectionRepos[0]
   const meta = sectionMeta[activeSection]
 
   useEffect(() => {
@@ -129,11 +217,13 @@ function App() {
     fetchGithubRepo(selectedRepo.owner, selectedRepo.name)
       .then((detail) => {
         if (cancelled) return
-        setRepos((current) => current.map((repo) => repo.id === selectedRepo.id ? {
+        const applyDetail = (current: Repo[]) => current.map((repo) => repo.id === selectedRepo.id ? {
           ...repo,
           ...detail,
           summary: detail.description || repo.summary,
-        } : repo))
+        } : repo)
+        setRepos(applyDetail)
+        setMyRepos(applyDetail)
       })
       .catch(() => {
         if (!cancelled) {
@@ -147,14 +237,38 @@ function App() {
     return () => { cancelled = true }
   }, [dataSource, selectedRepo])
 
+  useEffect(() => {
+    if (activeSection !== 'explore' || dataSource !== 'github') return
+    let cancelled = false
+    const loadExplore = async () => {
+      setExploreLoading(true)
+      setExploreError('')
+      try {
+        const result = await fetchGithubExplore(exploreKind)
+        if (cancelled) return
+        const currentByName = new Map(repos.map((repo) => [`${repo.owner}/${repo.name}`, repo]))
+        setExploreRepos(result.repos.map((repo) => mapGithubRepo(repo, currentByName.get(`${repo.owner}/${repo.name}`))))
+      } catch (error) {
+        if (!cancelled) setExploreError(error instanceof Error ? error.message : 'GitHub Explore failed')
+      } finally {
+        if (!cancelled) setExploreLoading(false)
+      }
+    }
+    void loadExplore()
+    return () => { cancelled = true }
+  }, [activeSection, dataSource, exploreKind, exploreReload, repos])
+
   const visibleRepos = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
-    return repos
+    return collectionRepos
       .filter((repo) => {
         if (filter === 'Favorites' && !repo.isPinned) return false
         if (filter === 'Needs review' && repo.status !== 'Needs review') return false
         if (filter === 'Archived' && repo.status !== 'Archived') return false
         if (language !== 'All languages' && repo.language !== language) return false
+        if (subjectFilter !== 'All subjects' && !subjectsForRepo(repo).includes(subjectFilter)) return false
+        if (projectFilter !== 'All projects' && repo.project !== projectFilter) return false
+        if (!matchesActivity(repo, activityFilter)) return false
         if (activeSection === 'projects' && repo.project !== 'Daily driver') return false
         if (activeSection === 'releases' && repo.lastRelease === 'No releases') return false
         if (normalizedQuery) {
@@ -168,14 +282,27 @@ function App() {
         if (sortKey === 'project') return a.project.localeCompare(b.project)
         return a.updatedAt - b.updatedAt
       })
-  }, [activeSection, filter, language, query, repos, sortKey])
+  }, [activeSection, activityFilter, collectionRepos, filter, language, projectFilter, query, sortKey, subjectFilter])
 
   const togglePinned = (repoId: string) => {
-    setRepos((current) => current.map((repo) => repo.id === repoId ? { ...repo, isPinned: !repo.isPinned } : repo))
+    const update = (current: Repo[]) => current.map((repo) => repo.id === repoId ? { ...repo, isPinned: !repo.isPinned } : repo)
+    setRepos(update)
+    setMyRepos(update)
+  }
+
+  const saveExploreRepo = (repo: Repo) => {
+    setRepos((current) => current.some((item) => item.id === repo.id)
+      ? current.map((item) => item.id === repo.id ? { ...item, isPinned: true } : item)
+      : [...current, { ...repo, isPinned: true, inLibrary: true, project: 'Inbox' }])
+    setExploreRepos((current) => current.map((item) => item.id === repo.id ? { ...item, isPinned: true, inLibrary: true } : item))
+    setMyRepos((current) => current.map((item) => item.id === repo.id ? { ...item, isPinned: true, inLibrary: true } : item))
+    setToast(`${repo.name} saved to your library`)
   }
 
   const saveNote = (repoId: string, note: string) => {
-    setRepos((current) => current.map((repo) => repo.id === repoId ? { ...repo, note } : repo))
+    const update = (current: Repo[]) => current.map((repo) => repo.id === repoId ? { ...repo, note } : repo)
+    setRepos(update)
+    setMyRepos(update)
     setToast('Note saved locally')
   }
 
@@ -203,9 +330,20 @@ function App() {
     if (organizing) return
     setOrganizing(true)
     window.setTimeout(() => {
+      setRepos((current) => current.map((repo) => {
+        const subjects = subjectsForRepo(repo)
+        const subjectTags = subjects.filter((subject) => subject !== 'Unsorted').map((subject) => subject.toLowerCase().replace(/[^a-z0-9]+/g, '-'))
+        const ageInDays = repo.updatedAt > 1_000_000_000_000 ? (Date.now() - repo.updatedAt) / 86_400_000 : repo.updatedAt
+        return {
+          ...repo,
+          tags: Array.from(new Set([...repo.tags, ...subjectTags])).slice(0, 8),
+          project: repo.project === 'Inbox' && subjects[0] !== 'Unsorted' ? subjects[0] : repo.project,
+          status: repo.status === 'Archived' ? repo.status : ageInDays >= 90 ? 'Needs review' : repo.status,
+        }
+      }))
       setOrganizing(false)
-      setToast('Library scan complete — nothing changed')
-    }, 900)
+      setToast(`Organized ${repos.length} repos by subjects and tags`)
+    }, 650)
   }
 
   const runCommand = (command: string) => {
@@ -232,18 +370,32 @@ function App() {
     }
   }
 
+  const closeSidebar = () => {
+    setSidebarOpen(false)
+    if (window.location.hash === '#menu') window.location.hash = activeSection === 'explore' ? `#explore/${exploreKind}` : `#${activeSection}`
+  }
+
+  const closeSettings = () => {
+    setSettingsOpen(false)
+    window.location.hash = activeSection === 'explore' ? `#explore/${exploreKind}` : `#${activeSection}`
+  }
+
+  const showSettings = settingsOpen || (typeof window !== 'undefined' && window.location.hash === '#settings')
+
   if (!selectedRepo) return null
 
   return (
     <div className="app-shell">
-      <Sidebar activeSection={activeSection} onNavigate={setActiveSection} pinnedCount={pinnedCount} reviewCount={reviewCount} accountLogin={accountLogin} dataSource={dataSource} sidebarOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {sidebarOpen && <button className="sidebar-backdrop" type="button" onClick={closeSidebar} onPointerUp={closeSidebar} aria-label="Close navigation overlay" />}
+      <Sidebar activeSection={activeSection} onNavigate={setActiveSection} pinnedCount={pinnedCount} reviewCount={reviewCount} accountLogin={accountLogin} dataSource={dataSource} repos={repos} selectedId={selectedId} onSelectRepo={(repoId) => { setSelectedId(repoId); setDetailTab('Overview'); setDetailOpen(true); closeSidebar(); setDetailError(false); setDetailLoading(false) }} onFilterChange={setFilter} onOpenFilters={() => setFiltersOpen(true)} onSettings={() => { setSettingsOpen(true); closeSidebar() }} sidebarOpen={sidebarOpen} onClose={closeSidebar} />
       <div className="app-content">
         <header className="topbar">
-          <button className="icon-button menu-button" type="button" onClick={() => setSidebarOpen(true)} aria-label="Open navigation"><Menu size={19} /></button>
+          <a className="icon-button menu-button" href="#menu" onClick={() => setSidebarOpen(true)} onPointerUp={() => setSidebarOpen(true)} aria-label="Open navigation" aria-expanded={sidebarOpen}><Menu size={19} /></a>
           <div className="breadcrumbs"><span>Starboard</span><ChevronRight size={14} /><strong>{meta.title}</strong></div>
           <div className="topbar__actions">
             <button className="command-button" type="button" onClick={() => setCommandOpen(true)}><Command size={14} /><span>Quick find</span><kbd>⌘ K</kbd></button>
-            <button className="icon-button" type="button" aria-label="Filters" title="Filters"><SlidersHorizontal size={17} /></button>
+            <button className={`icon-button ${filtersOpen ? 'icon-button--active' : ''}`} type="button" onClick={() => setFiltersOpen((open) => !open)} aria-label="Toggle filters" aria-expanded={filtersOpen} title="Filters"><SlidersHorizontal size={17} /></button>
+            <a className="icon-button" href="#settings" onClick={() => setSettingsOpen(true)} aria-label="Open settings" title="Settings"><Settings2 size={17} /></a>
             <span className="topbar__avatar">EJ</span>
           </div>
         </header>
@@ -262,9 +414,9 @@ function App() {
           </section>
 
           <section className="stat-strip" aria-label="Library summary">
-            <div className="stat"><span className="stat__value">{repos.length}</span><span className="stat__label">repos from {dataSource === 'github' ? 'GitHub stars' : 'demo data'}</span></div>
+            <div className="stat"><span className="stat__value">{collectionRepos.length}</span><span className="stat__label">repos in {activeSection === 'repos' ? 'your account' : dataSource === 'github' ? 'GitHub stars' : 'demo data'}</span></div>
             <div className="stat"><span className="stat__value">{activeCount}</span><span className="stat__label">active right now</span></div>
-            <div className="stat"><span className="stat__value">{pinnedCount}</span><span className="stat__label">favorites kept close</span></div>
+            <div className="stat"><span className="stat__value">{collectionPinnedCount}</span><span className="stat__label">favorites kept close</span></div>
             <div className="stat stat--attention"><span className="stat__value">{reviewCount}</span><span className="stat__label">need a second look</span></div>
           </section>
 
@@ -272,10 +424,15 @@ function App() {
           {!syncing && dataSource === 'github' && <div className="context-banner context-banner--live"><span className="context-banner__live-dot" /> Connected as <strong>{accountLogin}</strong> · {repos.length} starred repos loaded.</div>}
           {!syncing && dataSource === 'demo' && githubError && <div className="context-banner context-banner--warning"><X size={16} /> Showing demo data because GitHub could not be reached: {githubError}</div>}
 
+          {activeSection !== 'explore' && <div className="discovery-strip"><span className="discovery-strip__label">Browse GitHub</span>{exploreLinks.map((link) => <a className="discovery-link" href={`#explore/${link.id}`} key={link.id} onClick={() => { setExploreKind(link.id); setActiveSection('explore') }}>{link.label}<ChevronRight size={14} /></a>)}</div>}
+
+          {activeSection === 'repos' && <div className="context-banner"><FolderIcon /> {myReposLoading ? 'Loading repositories you own from GitHub…' : myReposError ? `My repos could not load: ${myReposError}` : `${myRepos.length} repositories owned by ${accountLogin}.`}</div>}
           {activeSection === 'projects' && <div className="context-banner"><FolderIcon /> Showing the <strong>Daily driver</strong> project · change the project model in the local store.</div>}
           {activeSection === 'releases' && <div className="context-banner"><PackageIcon /> Showing repos with a release in the current snapshot.</div>}
-          {activeSection === 'explore' && <div className="context-banner"><CompassIcon /> Explore is kept close to the active repos in your library.</div>}
+          {activeSection === 'explore' && <div className="context-banner"><CompassIcon /> GitHub-wide rankings, not a filtered copy of your library · matches are marked <strong>In library</strong>.</div>}
 
+          {activeSection === 'explore' && <ExploreShelf kind={exploreKind} repos={exploreRepos} loading={exploreLoading} error={dataSource === 'github' ? exploreError : 'GitHub data is still connecting.'} onKindChange={setExploreKind} onSave={saveExploreRepo} onRetry={() => setExploreReload((value) => value + 1)} />}
+          {activeSection !== 'explore' && <>
           <section className="library-toolbar" aria-label="Library controls">
             <form className="search-box" onSubmit={(event) => event.preventDefault()}>
               <Search size={18} aria-hidden="true" />
@@ -286,8 +443,15 @@ function App() {
             <button className={`intent-button ${query === 'local-first' ? 'intent-button--active' : ''}`} type="button" onClick={() => setQuery('local-first')}><Sparkles size={14} /> Try intent search</button>
             <div className="toolbar-divider" />
             <div className="filter-pills" role="group" aria-label="Filter repos">
-              {filterOptions.map((option) => <button className={filter === option ? 'filter-pill filter-pill--active' : 'filter-pill'} type="button" key={option} onClick={() => setFilter(option)}>{option}{option === 'All' && <span>{repos.length}</span>}{option === 'Favorites' && <span>{pinnedCount}</span>}{option === 'Needs review' && <span>{reviewCount}</span>}{option === 'Archived' && <span>{repos.filter((repo) => repo.status === 'Archived').length}</span>}</button>)}
+              {filterOptions.map((option) => <button className={filter === option ? 'filter-pill filter-pill--active' : 'filter-pill'} type="button" key={option} onClick={() => setFilter(option)}>{option}{option === 'All' && <span>{collectionRepos.length}</span>}{option === 'Favorites' && <span>{collectionPinnedCount}</span>}{option === 'Needs review' && <span>{reviewCount}</span>}{option === 'Archived' && <span>{collectionArchivedCount}</span>}</button>)}
             </div>
+            <button className={`filter-toggle ${filtersOpen ? 'filter-toggle--active' : ''}`} type="button" onClick={() => setFiltersOpen((open) => !open)} aria-expanded={filtersOpen}><SlidersHorizontal size={14} /> More filters <ChevronDown className={filtersOpen ? 'filter-toggle__chevron filter-toggle__chevron--open' : 'filter-toggle__chevron'} size={14} /></button>
+            {filtersOpen && <div className="advanced-filters" aria-label="Advanced repo filters">
+              <label className="select-label"><span className="advanced-filter__label">Subject</span><select value={subjectFilter} onChange={(event) => setSubjectFilter(event.target.value)}>{subjects.map((item) => <option key={item}>{item}</option>)}</select><ChevronDown size={14} /></label>
+              <label className="select-label"><span className="advanced-filter__label">Project</span><select value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)}>{projects.map((item) => <option key={item}>{item}</option>)}</select><ChevronDown size={14} /></label>
+              <label className="select-label"><span className="advanced-filter__label">Activity</span><select value={activityFilter} onChange={(event) => setActivityFilter(event.target.value as ActivityFilter)}><option>All activity</option><option>Updated this week</option><option>Updated this month</option><option>Stale 90d+</option></select><ChevronDown size={14} /></label>
+              <button className="clear-advanced" type="button" onClick={() => { setSubjectFilter('All subjects'); setProjectFilter('All projects'); setActivityFilter('All activity') }}>Reset</button>
+            </div>}
           </section>
 
           <section className="workspace" aria-label="Repository library">
@@ -300,7 +464,11 @@ function App() {
                   <div className="view-switcher" role="group" aria-label="View mode"><button className={viewMode === 'grid' ? 'view-button view-button--active' : 'view-button'} type="button" onClick={() => setViewMode('grid')} aria-label="Grid view" aria-pressed={viewMode === 'grid'}><Grid2X2 size={15} /></button><button className={viewMode === 'list' ? 'view-button view-button--active' : 'view-button'} type="button" onClick={() => setViewMode('list')} aria-label="List view" aria-pressed={viewMode === 'list'}><List size={16} /></button></div>
                 </div>
               </div>
-              {visibleRepos.length > 0 ? (
+              {activeSection === 'repos' && myReposLoading ? (
+                <div className="empty-state"><div className="empty-state__icon"><RefreshCw className="spin" size={21} /></div><h2>Loading your repos</h2><p>Reading repositories owned by {accountLogin} from GitHub.</p></div>
+              ) : activeSection === 'repos' && myReposError ? (
+                <div className="empty-state"><div className="empty-state__icon"><X size={21} /></div><h2>My repos could not load</h2><p>{myReposError}</p><button className="button button--quiet" type="button" onClick={() => setMyReposReload((value) => value + 1)}>Retry</button></div>
+              ) : visibleRepos.length > 0 ? (
                 <div className={`repo-grid repo-grid--${viewMode}`}>
                   {visibleRepos.map((repo) => <RepoCard key={repo.id} repo={repo} selected={repo.id === selectedId} viewMode={viewMode} onSelect={() => { setSelectedId(repo.id); setDetailTab('Overview'); setDetailOpen(true); setDetailError(false); setDetailLoading(false) }} onTogglePinned={() => togglePinned(repo.id)} />)}
                 </div>
@@ -309,16 +477,26 @@ function App() {
                   <div className="empty-state__icon"><Search size={21} /></div>
                   <h2>No repos match that view</h2>
                   <p>Try a shorter search, clear a filter, or return to the full library.</p>
-                  <button className="button button--quiet" type="button" onClick={() => { setQuery(''); setFilter('All'); setLanguage('All languages') }}>Clear filters</button>
+                  <button className="button button--quiet" type="button" onClick={() => { setQuery(''); setFilter('All'); setLanguage('All languages'); setSubjectFilter('All subjects'); setProjectFilter('All projects'); setActivityFilter('All activity') }}>Clear filters</button>
                 </div>
               )}
             </div>
-            {detailOpen && <RepoDetail key={selectedRepo.id} repo={selectedRepo} activeTab={detailTab} onTabChange={setDetailTab} onClose={() => setDetailOpen(false)} onTogglePinned={() => togglePinned(selectedRepo.id)} onSaveNote={(note) => saveNote(selectedRepo.id, note)} loading={detailLoading || (dataSource === 'github' && selectedRepo.readme[0] === 'README not loaded yet' && !detailError)} error={detailError} source={dataSource} />}
+            {detailOpen && !(activeSection === 'repos' && (myReposLoading || myReposError || myRepos.length === 0)) && <RepoDetail key={selectedRepo.id} repo={selectedRepo} activeTab={detailTab} onTabChange={setDetailTab} onClose={() => setDetailOpen(false)} onTogglePinned={() => togglePinned(selectedRepo.id)} onSaveNote={(note) => saveNote(selectedRepo.id, note)} loading={detailLoading || (dataSource === 'github' && selectedRepo.readme[0] === 'README not loaded yet' && !detailError)} error={detailError} source={dataSource} />}
           </section>
+          </>}
         </main>
       </div>
 
       {toast && <div className="toast" role="status"><span className="toast__icon"><Check size={14} /></span>{toast}</div>}
+
+      {showSettings && <div className="settings-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSettings() }}>
+        <section className="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+          <div className="settings-panel__header"><div><span className="eyebrow">Workspace</span><h2 id="settings-title">Settings</h2></div><a className="icon-button" href={activeSection === 'explore' ? `#explore/${exploreKind}` : `#${activeSection}`} onClick={closeSettings} onPointerUp={closeSettings} aria-label="Close settings"><X size={18} /></a></div>
+          <div className="settings-panel__section"><span className="section-kicker">GitHub connection</span><div className="settings-status"><span className="context-banner__live-dot" /><div><strong>{dataSource === 'github' ? `Connected as ${accountLogin}` : 'Demo fallback'}</strong><p>{dataSource === 'github' ? 'Your starred repositories are loaded through the local bridge.' : githubError || 'No live GitHub snapshot yet.'}</p></div></div><button className="button button--primary button--small" type="button" onClick={handleSync} disabled={syncing}><RefreshCw className={syncing ? 'spin' : ''} size={14} /> {syncing ? 'Refreshing…' : 'Refresh stars'}</button></div>
+          <div className="settings-panel__section"><span className="section-kicker">Local data</span><p className="settings-copy">Favorites, notes, and subject organization stay in this browser. GitHub credentials never enter the page.</p><div className="settings-list"><div><span>Stored repos</span><strong>{repos.length}</strong></div><div><span>Saved favorites</span><strong>{pinnedCount}</strong></div><div><span>Subjects available</span><strong>{subjects.length - 1}</strong></div></div></div>
+          <div className="settings-panel__footer"><span className="private-note"><Settings2 size={13} /> Starboard local workspace</span><button className="button button--quiet button--small" type="button" onClick={closeSettings}>Done</button></div>
+        </section>
+      </div>}
 
       {commandOpen && (
         <div className="command-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCommandOpen(false) }}>

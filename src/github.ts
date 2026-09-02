@@ -12,10 +12,20 @@ export type GithubRemoteRepo = {
   pushedAt: string | null
   defaultBranch: string
   githubUrl: string
+  starsCount?: number
+  forksCount?: number
+  license?: string
 }
 
 export type GithubSnapshot = {
   user: { login: string; name: string | null; avatarUrl: string }
+  repos: GithubRemoteRepo[]
+}
+
+export type ExploreKind = 'trending' | 'top' | 'opensource' | 'selfhosted'
+
+export type GithubExploreResponse = {
+  kind: ExploreKind
   repos: GithubRemoteRepo[]
 }
 
@@ -54,6 +64,20 @@ export async function fetchGithubSnapshot(): Promise<GithubSnapshot> {
   return payload
 }
 
+export async function fetchGithubRepos(): Promise<{ repos: GithubRemoteRepo[] }> {
+  const response = await fetch('/api/github/repos')
+  const payload = await response.json() as { repos: GithubRemoteRepo[]; error?: string }
+  if (!response.ok) throw new Error(payload.error || 'GitHub repositories request failed')
+  return payload
+}
+
+export async function fetchGithubExplore(kind: ExploreKind): Promise<GithubExploreResponse> {
+  const response = await fetch(`/api/github/explore?kind=${kind}`)
+  const payload = await response.json() as GithubExploreResponse & { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'GitHub Explore request failed')
+  return payload
+}
+
 export async function fetchGithubRepo(owner: string, name: string): Promise<Partial<Repo>> {
   const params = new URLSearchParams({ owner, name })
   const response = await fetch(`/api/github/repo?${params.toString()}`)
@@ -83,10 +107,32 @@ export function mapGithubRepo(remote: GithubRemoteRepo, local?: Repo): Repo {
     readme: ['README not loaded yet', 'Select this repo to fetch its README from GitHub.'],
     files: [],
     lastRelease: 'Not loaded',
+    starsCount: remote.starsCount,
+    forksCount: remote.forksCount,
+    license: remote.license,
+    inLibrary: Boolean(local),
   }
 }
 
 export function mergeGithubRepos(remoteRepos: GithubRemoteRepo[], current: Repo[]) {
   const currentByName = new Map(current.map((repo) => [`${repo.owner}/${repo.name}`, repo]))
   return remoteRepos.map((repo) => mapGithubRepo(repo, currentByName.get(`${repo.owner}/${repo.name}`)))
+}
+
+const subjectRules = [
+  { label: 'AI & agents', terms: ['ai', 'agent', 'llm', 'model', 'prompt', 'inference', 'rag', 'machine learning'] },
+  { label: 'Developer tools', terms: ['cli', 'tui', 'developer', 'devtool', 'terminal', 'git', 'editor', 'workflow'] },
+  { label: 'Self-hosted', terms: ['self-hosted', 'selfhosted', 'homelab', 'docker', 'server', 'privacy'] },
+  { label: 'Web & frontend', terms: ['web', 'frontend', 'browser', 'javascript', 'typescript', 'react', 'vue', 'svelte'] },
+  { label: 'Data & databases', terms: ['database', 'sqlite', 'sql', 'data', 'graph', 'search', 'vector'] },
+  { label: 'Design systems', terms: ['design', 'ui', 'ux', 'css', 'figma', 'component'] },
+  { label: 'Automation', terms: ['automation', 'workflow', 'integration', 'api', 'bot', 'crawler'] },
+  { label: 'Mobile', terms: ['ios', 'android', 'mobile', 'swift', 'kotlin'] },
+  { label: 'Reference', terms: ['awesome', 'curated', 'reference', 'documentation', 'learning', 'list'] },
+] as const
+
+export function subjectsForRepo(repo: Pick<Repo, 'name' | 'description' | 'tags' | 'language'>) {
+  const haystack = [repo.name, repo.description, repo.language, ...repo.tags].join(' ').toLowerCase()
+  const subjects = subjectRules.filter((rule) => rule.terms.some((term) => haystack.includes(term))).map((rule) => rule.label)
+  return subjects.length > 0 ? subjects.slice(0, 3) : ['Unsorted']
 }

@@ -15,6 +15,9 @@ type GithubStar = {
   language: string | null
   topics?: string[]
   archived: boolean
+  stargazers_count: number
+  forks_count: number
+  license?: { spdx_id: string | null } | null
   updated_at: string
   pushed_at: string | null
   default_branch: string
@@ -98,6 +101,17 @@ async function fetchStarred(authorization: string) {
   return starred
 }
 
+async function fetchOwnedRepos(authorization: string) {
+  const owned: GithubStar[] = []
+  for (let page = 1; page <= 100; page += 1) {
+    const { data } = await githubGet(`/user/repos?visibility=all&affiliation=owner&sort=updated&per_page=100&page=${page}`, authorization)
+    if (!Array.isArray(data) || data.length === 0) break
+    owned.push(...data)
+    if (data.length < 100) break
+  }
+  return owned
+}
+
 function mapStar(repo: GithubStar) {
   return {
     id: repo.id,
@@ -111,6 +125,9 @@ function mapStar(repo: GithubStar) {
     pushedAt: repo.pushed_at,
     defaultBranch: repo.default_branch,
     githubUrl: repo.html_url,
+    starsCount: repo.stargazers_count,
+    forksCount: repo.forks_count,
+    license: repo.license?.spdx_id ?? undefined,
   }
 }
 
@@ -124,6 +141,32 @@ async function fetchSnapshot() {
     user: { login: user.login, name: user.name, avatarUrl: user.avatar_url },
     repos: starred.map(mapStar),
   }
+}
+
+type ExploreKind = 'trending' | 'top' | 'opensource' | 'selfhosted'
+
+function exploreQuery(kind: ExploreKind) {
+  if (kind === 'trending') {
+    const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)
+    return `stars:>100 pushed:>${since}`
+  }
+  if (kind === 'opensource') return 'license:mit OR license:apache-2.0 OR license:bsd-3-clause stars:>100'
+  if (kind === 'selfhosted') return 'topic:self-hosted stars:>50'
+  return 'stars:>0'
+}
+
+async function fetchExplore(kind: ExploreKind) {
+  const authorization = await authHeader()
+  const queries = kind === 'opensource'
+    ? ['license:mit stars:>100', 'license:apache-2.0 stars:>100', 'license:bsd-3-clause stars:>100']
+    : [exploreQuery(kind)]
+  const responses = await Promise.all(queries.map((query) => githubGet(`/search/repositories?q=${encodeURIComponent(query)}&sort=stars&order=desc&per_page=20`, authorization)))
+  const uniqueRepos = new Map<number, GithubStar>()
+  responses.forEach(({ data }) => {
+    if (Array.isArray(data.items)) data.items.forEach((repo: GithubStar) => uniqueRepos.set(repo.id, repo))
+  })
+  const repos = Array.from(uniqueRepos.values()).sort((a, b) => b.stargazers_count - a.stargazers_count).slice(0, 20)
+  return { kind, repos: repos.map(mapStar) }
 }
 
 function safeRepoPart(value: string | null) {
@@ -158,6 +201,9 @@ async function fetchRepoDetail(owner: string, name: string) {
     pushedAt: repo.pushed_at,
     defaultBranch: repo.default_branch,
     archived: repo.archived,
+    starsCount: repo.stargazers_count,
+    forksCount: repo.forks_count,
+    license: repo.license?.spdx_id ?? undefined,
     readme: [heading, ...body],
     files: tree.slice(0, 32).map((item: { path: string }) => item.path),
     lastRelease: releaseResult.data?.tag_name ?? 'No releases',
@@ -184,6 +230,21 @@ export function githubProxy(): Plugin {
         try {
           if (url.pathname === '/api/github/snapshot') {
             sendJson(response, 200, await fetchSnapshot())
+            return
+          }
+          if (url.pathname === '/api/github/repos') {
+            const authorization = await authHeader()
+            const repos = await fetchOwnedRepos(authorization)
+            sendJson(response, 200, { repos: repos.map(mapStar) })
+            return
+          }
+          if (url.pathname === '/api/github/explore') {
+            const kind = url.searchParams.get('kind')
+            if (!kind || !['trending', 'top', 'opensource', 'selfhosted'].includes(kind)) {
+              sendJson(response, 400, { error: 'A valid Explore category is required' })
+              return
+            }
+            sendJson(response, 200, await fetchExplore(kind as ExploreKind))
             return
           }
           if (url.pathname === '/api/github/repo') {
