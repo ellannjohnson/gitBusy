@@ -66,7 +66,7 @@ cp -R "$APP" "$DMG_ROOT/gitBusy.app"
 cp "$PROJECT/INSTALL.md" "$DMG_ROOT/INSTALL.md"
 hdiutil create -volname gitBusy -srcfolder "$DMG_ROOT" -ov -format UDZO "$OUT/gitBusy-macos-${ARCH}-v${VERSION}.dmg" >/dev/null
 
-shasum -a 256 "$OUT"/*.zip "$OUT"/*.dmg > "$OUT/SHA256SUMS.txt"
+(cd "$OUT" && shasum -a 256 *.zip *.dmg > SHA256SUMS.txt)
 print "Artifacts:"
 for artifact in "$OUT"/*.zip "$OUT"/*.dmg "$OUT/SHA256SUMS.txt"; do
   stat -f '%N %z bytes' "$artifact"
