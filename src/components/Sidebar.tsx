@@ -17,6 +17,9 @@ type SidebarProps = {
   activeSection: Section
   onNavigate: (section: Section) => void
   pinnedCount: number
+  reviewCount: number
+  accountLogin: string
+  dataSource: 'github' | 'demo'
   sidebarOpen: boolean
   onClose: () => void
 }
@@ -28,7 +31,7 @@ const primaryItems: Array<{ id: Section; label: string; icon: typeof Library }> 
   { id: 'releases', label: 'Releases', icon: PackageOpen },
 ]
 
-export function Sidebar({ activeSection, onNavigate, pinnedCount, sidebarOpen, onClose }: SidebarProps) {
+export function Sidebar({ activeSection, onNavigate, pinnedCount, reviewCount, accountLogin, dataSource, sidebarOpen, onClose }: SidebarProps) {
   return (
     <aside className={`sidebar ${sidebarOpen ? 'sidebar--open' : ''}`} aria-label="Primary navigation">
       <div className="sidebar__topline">
@@ -44,8 +47,8 @@ export function Sidebar({ activeSection, onNavigate, pinnedCount, sidebarOpen, o
       <div className="sidebar__account">
         <span className="avatar" aria-hidden="true">EJ</span>
         <div>
-          <strong>ellannjohnson</strong>
-          <span>local library</span>
+          <strong>{accountLogin}</strong>
+          <span>{dataSource === 'github' ? 'GitHub account' : 'local demo'}</span>
         </div>
         <button className="icon-button sidebar__settings" type="button" aria-label="Open settings" title="Settings">
           <Settings2 size={16} />
@@ -79,7 +82,7 @@ export function Sidebar({ activeSection, onNavigate, pinnedCount, sidebarOpen, o
         <button className="nav-item" type="button" onClick={() => { onNavigate('library'); onClose() }}>
           <Archive size={17} strokeWidth={1.9} />
           <span>Needs review</span>
-          <span className="nav-item__count">3</span>
+          <span className="nav-item__count">{reviewCount}</span>
         </button>
         <button className="nav-item" type="button" onClick={() => { onNavigate('library'); onClose() }}>
           <Tags size={17} strokeWidth={1.9} />

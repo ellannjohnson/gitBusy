@@ -9,11 +9,14 @@ type RepoDetailProps = {
   onClose: () => void
   onTogglePinned: () => void
   onSaveNote: (note: string) => void
+  loading: boolean
+  error: boolean
+  source: 'github' | 'demo'
 }
 
 const tabs: DetailTab[] = ['Overview', 'Files', 'Notes']
 
-export function RepoDetail({ repo, activeTab, onTabChange, onClose, onTogglePinned, onSaveNote }: RepoDetailProps) {
+export function RepoDetail({ repo, activeTab, onTabChange, onClose, onTogglePinned, onSaveNote, loading, error, source }: RepoDetailProps) {
   const [noteDraft, setNoteDraft] = useState(repo.note)
   const [saved, setSaved] = useState(false)
 
@@ -68,7 +71,7 @@ export function RepoDetail({ repo, activeTab, onTabChange, onClose, onTogglePinn
             </div>
             <div className="detail-readme">
               <div className="detail-block-heading"><span className="section-kicker">README excerpt</span><FileCode2 size={15} /></div>
-              {repo.readme.map((line, index) => index === 0 ? <h3 key={line}>{line.replace('# ', '')}</h3> : <p key={`${line}-${index}`}>{line}</p>)}
+              {loading ? <div className="detail-loading"><span className="loading-bar" /> Fetching README from GitHub…</div> : error ? <div className="detail-error"><strong>README unavailable</strong><span>GitHub returned no repo detail. The library list is still usable.</span></div> : repo.readme.map((line, index) => index === 0 ? <h3 key={line}>{line.replace('# ', '')}</h3> : <p key={`${line}-${index}`}>{line}</p>)}
             </div>
           </div>
         )}
@@ -76,13 +79,13 @@ export function RepoDetail({ repo, activeTab, onTabChange, onClose, onTogglePinn
         {activeTab === 'Files' && (
           <div className="file-browser">
             <div className="file-browser__heading"><span className="section-kicker">Source tree</span><span>{repo.files.length} entries</span></div>
-            <ul className="file-list">
+            {loading ? <div className="detail-loading"><span className="loading-bar" /> Fetching source tree from GitHub…</div> : error ? <div className="detail-error"><strong>Source tree unavailable</strong><span>GitHub did not return file metadata for this repo.</span></div> : repo.files.length > 0 ? <ul className="file-list">
               {repo.files.map((file) => {
                 const isFolder = !file.includes('.')
                 return <li key={file}><span className="file-list__name">{isFolder ? <Folder size={15} /> : <FileCode2 size={15} />}{file}</span><span className="file-list__arrow">›</span></li>
               })}
-            </ul>
-            <div className="file-browser__footer"><GitBranch size={14} /> default branch · fetched from snapshot</div>
+            </ul> : <p className="detail-empty">No source tree was returned for this repo.</p>}
+            <div className="file-browser__footer"><GitBranch size={14} /> default branch · fetched from GitHub</div>
           </div>
         )}
 
@@ -99,7 +102,7 @@ export function RepoDetail({ repo, activeTab, onTabChange, onClose, onTogglePinn
         )}
       </div>
 
-      <div className="detail-panel__footer"><span>Imported in demo snapshot</span><GitFork size={14} /></div>
+      <div className="detail-panel__footer"><span>{source === 'github' ? 'Synced through local bridge' : 'Demo snapshot'}</span><GitFork size={14} /></div>
     </aside>
   )
 }

@@ -20,6 +20,7 @@ import { RepoCard } from './components/RepoCard'
 import { RepoDetail } from './components/RepoDetail'
 import { Sidebar } from './components/Sidebar'
 import { seedRepos, sectionMeta } from './data'
+import { fetchGithubRepo, fetchGithubSnapshot, mergeGithubRepos } from './github'
 import type { DetailTab, Filter, Repo, Section } from './types'
 import './App.css'
 
@@ -39,6 +40,9 @@ function loadRepos() {
 
 function App() {
   const [repos, setRepos] = useState<Repo[]>(loadRepos)
+  const [dataSource, setDataSource] = useState<'github' | 'demo'>('demo')
+  const [accountLogin, setAccountLogin] = useState('ellannjohnson')
+  const [githubError, setGithubError] = useState('')
   const [activeSection, setActiveSection] = useState<Section>('library')
   const [filter, setFilter] = useState<Filter>('All')
   const [query, setQuery] = useState('')
@@ -52,13 +56,38 @@ function App() {
   const [commandOpen, setCommandOpen] = useState(false)
   const [commandQuery, setCommandQuery] = useState('')
   const [organizing, setOrganizing] = useState(false)
-  const [syncing, setSyncing] = useState(false)
+  const [syncing, setSyncing] = useState(true)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState(false)
   const [toast, setToast] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     window.localStorage.setItem('starboard-repos', JSON.stringify(repos))
   }, [repos])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadGithub = async () => {
+      try {
+        const snapshot = await fetchGithubSnapshot()
+        if (cancelled) return
+        setRepos((current) => mergeGithubRepos(snapshot.repos, current))
+        setSelectedId((currentId) => snapshot.repos.some((repo) => String(repo.id) === currentId) ? currentId : String(snapshot.repos[0]?.id ?? currentId))
+        setDetailError(false)
+        setAccountLogin(snapshot.user.login)
+        setDataSource('github')
+        setGithubError('')
+      } catch (error) {
+        if (cancelled) return
+        setGithubError(error instanceof Error ? error.message : 'GitHub could not be reached')
+      } finally {
+        if (!cancelled) setSyncing(false)
+      }
+    }
+    void loadGithub()
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -94,6 +123,30 @@ function App() {
   const selectedRepo = repos.find((repo) => repo.id === selectedId) ?? repos[0]
   const meta = sectionMeta[activeSection]
 
+  useEffect(() => {
+    if (dataSource !== 'github' || !selectedRepo || selectedRepo.readme[0] !== 'README not loaded yet') return
+    let cancelled = false
+    fetchGithubRepo(selectedRepo.owner, selectedRepo.name)
+      .then((detail) => {
+        if (cancelled) return
+        setRepos((current) => current.map((repo) => repo.id === selectedRepo.id ? {
+          ...repo,
+          ...detail,
+          summary: detail.description || repo.summary,
+        } : repo))
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDetailError(true)
+          setToast('Repo details could not be loaded')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [dataSource, selectedRepo])
+
   const visibleRepos = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
     return repos
@@ -126,13 +179,24 @@ function App() {
     setToast('Note saved locally')
   }
 
-  const handleSync = () => {
+  const handleSync = async () => {
     if (syncing) return
     setSyncing(true)
-    window.setTimeout(() => {
+    try {
+      const snapshot = await fetchGithubSnapshot()
+      setRepos((current) => mergeGithubRepos(snapshot.repos, current))
+      setSelectedId((currentId) => snapshot.repos.some((repo) => String(repo.id) === currentId) ? currentId : String(snapshot.repos[0]?.id ?? currentId))
+      setDetailError(false)
+      setAccountLogin(snapshot.user.login)
+      setDataSource('github')
+      setGithubError('')
+      setToast(`Loaded ${snapshot.repos.length} stars from GitHub`)
+    } catch (error) {
+      setGithubError(error instanceof Error ? error.message : 'GitHub could not be reached')
+      setToast('GitHub sync failed — keeping the local library')
+    } finally {
       setSyncing(false)
-      setToast('GitHub snapshot is up to date')
-    }, 1000)
+    }
   }
 
   const handleOrganize = () => {
@@ -162,6 +226,8 @@ function App() {
       setCommandOpen(false)
       setSelectedId(repos[0].id)
       setDetailOpen(true)
+      setDetailError(false)
+      setDetailLoading(false)
       setDetailTab('Overview')
     }
   }
@@ -170,7 +236,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar activeSection={activeSection} onNavigate={setActiveSection} pinnedCount={pinnedCount} sidebarOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar activeSection={activeSection} onNavigate={setActiveSection} pinnedCount={pinnedCount} reviewCount={reviewCount} accountLogin={accountLogin} dataSource={dataSource} sidebarOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="app-content">
         <header className="topbar">
           <button className="icon-button menu-button" type="button" onClick={() => setSidebarOpen(true)} aria-label="Open navigation"><Menu size={19} /></button>
@@ -185,7 +251,7 @@ function App() {
         <main className="main-content" id="library">
           <section className="page-heading">
             <div>
-              <span className="eyebrow"><span className="eyebrow__dot" /> Local workspace</span>
+              <span className="eyebrow"><span className="eyebrow__dot" /> {dataSource === 'github' ? `GitHub · ${accountLogin}` : syncing ? 'Connecting to GitHub…' : 'Local demo fallback'}</span>
               <h1>{meta.title}</h1>
               <p>{meta.subtitle}</p>
             </div>
@@ -196,15 +262,19 @@ function App() {
           </section>
 
           <section className="stat-strip" aria-label="Library summary">
-            <div className="stat"><span className="stat__value">{repos.length}</span><span className="stat__label">repos in demo library</span></div>
+            <div className="stat"><span className="stat__value">{repos.length}</span><span className="stat__label">repos from {dataSource === 'github' ? 'GitHub stars' : 'demo data'}</span></div>
             <div className="stat"><span className="stat__value">{activeCount}</span><span className="stat__label">active right now</span></div>
             <div className="stat"><span className="stat__value">{pinnedCount}</span><span className="stat__label">favorites kept close</span></div>
             <div className="stat stat--attention"><span className="stat__value">{reviewCount}</span><span className="stat__label">need a second look</span></div>
           </section>
 
-          {activeSection === 'projects' && <div className="context-banner"><FolderIcon /> Showing the <strong>Daily driver</strong> project · change the project model when GitHub sync is connected.</div>}
-          {activeSection === 'releases' && <div className="context-banner"><PackageIcon /> Showing repos with a release in the imported snapshot.</div>}
-          {activeSection === 'explore' && <div className="context-banner"><CompassIcon /> Explore is seeded with your active repos so the habit stays close to your library.</div>}
+          {syncing && <div className="context-banner"><RefreshCw className="spin" size={16} /> Reading your GitHub stars through the local credential helper…</div>}
+          {!syncing && dataSource === 'github' && <div className="context-banner context-banner--live"><span className="context-banner__live-dot" /> Connected as <strong>{accountLogin}</strong> · {repos.length} starred repos loaded.</div>}
+          {!syncing && dataSource === 'demo' && githubError && <div className="context-banner context-banner--warning"><X size={16} /> Showing demo data because GitHub could not be reached: {githubError}</div>}
+
+          {activeSection === 'projects' && <div className="context-banner"><FolderIcon /> Showing the <strong>Daily driver</strong> project · change the project model in the local store.</div>}
+          {activeSection === 'releases' && <div className="context-banner"><PackageIcon /> Showing repos with a release in the current snapshot.</div>}
+          {activeSection === 'explore' && <div className="context-banner"><CompassIcon /> Explore is kept close to the active repos in your library.</div>}
 
           <section className="library-toolbar" aria-label="Library controls">
             <form className="search-box" onSubmit={(event) => event.preventDefault()}>
@@ -232,7 +302,7 @@ function App() {
               </div>
               {visibleRepos.length > 0 ? (
                 <div className={`repo-grid repo-grid--${viewMode}`}>
-                  {visibleRepos.map((repo) => <RepoCard key={repo.id} repo={repo} selected={repo.id === selectedId} viewMode={viewMode} onSelect={() => { setSelectedId(repo.id); setDetailTab('Overview'); setDetailOpen(true) }} onTogglePinned={() => togglePinned(repo.id)} />)}
+                  {visibleRepos.map((repo) => <RepoCard key={repo.id} repo={repo} selected={repo.id === selectedId} viewMode={viewMode} onSelect={() => { setSelectedId(repo.id); setDetailTab('Overview'); setDetailOpen(true); setDetailError(false); setDetailLoading(false) }} onTogglePinned={() => togglePinned(repo.id)} />)}
                 </div>
               ) : (
                 <div className="empty-state">
@@ -243,7 +313,7 @@ function App() {
                 </div>
               )}
             </div>
-            {detailOpen && <RepoDetail key={selectedRepo.id} repo={selectedRepo} activeTab={detailTab} onTabChange={setDetailTab} onClose={() => setDetailOpen(false)} onTogglePinned={() => togglePinned(selectedRepo.id)} onSaveNote={(note) => saveNote(selectedRepo.id, note)} />}
+            {detailOpen && <RepoDetail key={selectedRepo.id} repo={selectedRepo} activeTab={detailTab} onTabChange={setDetailTab} onClose={() => setDetailOpen(false)} onTogglePinned={() => togglePinned(selectedRepo.id)} onSaveNote={(note) => saveNote(selectedRepo.id, note)} loading={detailLoading || (dataSource === 'github' && selectedRepo.readme[0] === 'README not loaded yet' && !detailError)} error={detailError} source={dataSource} />}
           </section>
         </main>
       </div>

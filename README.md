@@ -1,6 +1,6 @@
 # Starboard
 
-A local-first GitHub star manager web app inspired by Stargazer’s workflow. Built as an original MVP with a warm editorial dashboard, seeded repo library, and browser-local persistence.
+A local-first GitHub star manager web app inspired by Stargazer’s workflow. Built as an original MVP with a warm editorial dashboard, a live local GitHub bridge, and browser-local persistence.
 
 ## Run it
 
@@ -15,22 +15,24 @@ Then open the localhost URL Vite prints.
 ## What works now
 
 - Search repo names, descriptions, summaries, tags, projects, and notes
-- Intent-search demo shortcut for local-first repos
+- Intent-search shortcut for local-first repos
+- Live snapshot of your GitHub starred repositories through the local bridge
+- On-demand README, source tree, and latest-release loading per repo
 - Filters for all repos, favorites, repos needing review, and archived repos
 - Language filter and sort by recent, name, or project
 - Grid and compact list views
 - Repo preview with overview, README excerpt, source tree, and notes tabs
 - Favorite/unfavorite repos
 - Edit and save repo notes to browser `localStorage`
-- Simulated sync and organize actions with honest status feedback
+- Sync button that refreshes the live GitHub snapshot
 - `⌘ K` quick-find command palette and `/` search shortcut
 - Responsive sidebar and mobile-friendly layout
 
-## Deliberate MVP boundary
+## Authentication and fallback
 
-The app is fully interactive with seeded demo data, but it does not ask for a GitHub token or call GitHub yet. The next integration seam is the `Repo` model in `src/types.ts` plus the `seedRepos` adapter in `src/data.ts`; replace that adapter with a GitHub API sync layer and keep the UI local-first.
+The Vite dev server calls `git credential fill` for `github.com`, keeps the credential in memory for the request, and never sends it to the browser. It then calls GitHub’s API for the signed-in user’s stars. If the local credential helper is unavailable, the UI keeps the last local library and explains that it is in demo fallback mode.
 
-AI organize is also a safe demo action today. A production version can send repo metadata to a local Ollama/LM Studio endpoint and persist summaries/tags in the same local store.
+The AI organize button is intentionally still a safe demo action. A production version can send repo metadata to a local Ollama/LM Studio endpoint and persist summaries/tags in the same local store.
 
 ## Checks run
 
