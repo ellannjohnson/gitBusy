@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { ExploreShelf } from './components/ExploreShelf'
 import { FolderWorkspace, type LocalFolder } from './components/FolderWorkspace'
+import { PublishDialog } from './components/PublishDialog'
 import { RepoCard } from './components/RepoCard'
 import { RepoDetail } from './components/RepoDetail'
 import { Sidebar } from './components/Sidebar'
@@ -117,6 +118,7 @@ function App() {
   const [exploreReload, setExploreReload] = useState(0)
   const [settingsOpen, setSettingsOpen] = useState(() => hashRoute().settings)
   const [toast, setToast] = useState('')
+  const [publishOpen, setPublishOpen] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const reposRef = useRef<Repo[]>(repos)
   const myReposLoadedRef = useRef(false)
@@ -250,7 +252,7 @@ function App() {
     collectionRepos.forEach((repo) => new Set(repo.tags).forEach((tag) => counts.set(tag, (counts.get(tag) ?? 0) + 1)))
     return Array.from(counts.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => ({ label, count }))
   }, [collectionRepos])
-  const selectedRepo = collectionRepos.find((repo) => repo.id === selectedId) ?? (selectedId === seedRepos[0].id ? collectionRepos[0] : undefined)
+  const selectedRepo = collectionRepos.find((repo) => repo.id === selectedId)
   const meta = sectionMeta[activeSection]
 
   useEffect(() => {
@@ -521,7 +523,7 @@ function App() {
           {activeSection === 'releases' && <div className="context-banner"><PackageIcon /> Release watchlist · latest release metadata loads when a repo preview is opened.</div>}
           {activeSection === 'explore' && <div className="context-banner"><CompassIcon /> GitHub-wide rankings, not a filtered copy of your library · matches are marked <strong>In library</strong>.</div>}
 
-          {activeSection === 'folders' && <FolderWorkspace folders={localFolders} selectedFolderIds={selectedFolderIds} onAddFolder={addLocalFolder} onToggleFolder={toggleLocalFolder} onRemoveFolder={removeLocalFolder} />}
+          {activeSection === 'folders' && <FolderWorkspace folders={localFolders} selectedFolderIds={selectedFolderIds} onAddFolder={addLocalFolder} onToggleFolder={toggleLocalFolder} onRemoveFolder={removeLocalFolder} onPublish={() => setPublishOpen(true)} />}
           {activeSection === 'explore' && <ExploreShelf kind={exploreKind} repos={exploreRepos} loading={exploreLoading} error={dataSource === 'github' ? exploreError : 'GitHub data is still connecting.'} onKindChange={setExploreKind} onSave={saveExploreRepo} onRetry={() => setExploreReload((value) => value + 1)} />}
           {activeSection !== 'explore' && activeSection !== 'folders' && <>
           <section className="library-toolbar" aria-label="Library controls">
@@ -582,6 +584,7 @@ function App() {
       {toast && <div className="toast" role="status"><span className="toast__icon"><Check size={14} /></span>{toast}</div>}
 
       {showTags && <TagsPanel tags={tagStats} totalRepos={collectionRepos.length} activeTag={tagFilter} onSelect={selectTag} onClose={closeTags} />}
+      {publishOpen && <PublishDialog folders={localFolders} selectedFolderIds={selectedFolderIds} onClose={() => setPublishOpen(false)} onPublished={(result) => setToast(`${result.full_name} published to GitHub`)} />}
 
       {showSettings && <div className="settings-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSettings() }}>
         <section className="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">

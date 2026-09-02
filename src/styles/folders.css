@@ -73,6 +73,25 @@
   border-radius: var(--radius-md);
 }
 
+.folder-library__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.folder-library__header-actions .icon-button:disabled {
+  opacity: 0.4;
+}
+
+.folder-library__actions {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.folder-publish-button {
+  width: 100%;
+}
+
 .folder-add-button:hover {
   background: var(--color-ink);
   border-color: var(--color-ink);

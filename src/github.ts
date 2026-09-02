@@ -138,3 +138,37 @@ export function subjectsForRepo(repo: Pick<Repo, 'name' | 'description' | 'tags'
   const subjects = subjectRules.filter((rule) => rule.terms.some((term) => haystack.includes(term))).map((rule) => rule.label)
   return subjects.length > 0 ? subjects.slice(0, 3) : ['Unsorted']
 }
+
+export type PublishFolderFile = {
+  path: string
+  content: string
+}
+
+export type PublishFolderRequest = {
+  name: string
+  description: string
+  isPrivate: boolean
+  addGitignore: 'Node' | 'Python' | 'Go' | 'Java' | 'Empty'
+  commitMessage: string
+  files: PublishFolderFile[]
+}
+
+export type PublishFolderResult = {
+  html_url: string
+  full_name: string
+  default_branch: string
+  filesUploaded: number
+  filesSkipped: Array<{ path: string; reason: string }>
+  warnings: string[]
+}
+
+export async function publishFolder(body: PublishFolderRequest): Promise<PublishFolderResult> {
+  const response = await fetch('/api/github/publish-folder', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const payload = await response.json() as PublishFolderResult & { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'GitHub folder publish failed')
+  return payload
+}

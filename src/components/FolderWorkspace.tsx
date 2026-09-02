@@ -1,4 +1,4 @@
-import { FileCode2, FileText, Folder, FolderOpen, Plus, Trash2, X } from 'lucide-react'
+import { FileCode2, FileText, Folder, FolderOpen, Plus, Trash2, UploadCloud, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 export type LocalFolder = {
@@ -13,6 +13,7 @@ type FolderWorkspaceProps = {
   onAddFolder: (files: FileList | null) => void
   onToggleFolder: (folderId: string, selected: boolean) => void
   onRemoveFolder: (folderId: string) => void
+  onPublish: () => void
 }
 
 type TreeEntry = {
@@ -31,7 +32,7 @@ function isReadme(path: string) {
   return path.toLowerCase().split('/').at(-1) === 'readme.md'
 }
 
-export function FolderWorkspace({ folders, selectedFolderIds, onAddFolder, onToggleFolder, onRemoveFolder }: FolderWorkspaceProps) {
+export function FolderWorkspace({ folders, selectedFolderIds, onAddFolder, onToggleFolder, onRemoveFolder, onPublish }: FolderWorkspaceProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [activeKey, setActiveKey] = useState('')
   const [fileContent, setFileContent] = useState('')
@@ -81,10 +82,10 @@ export function FolderWorkspace({ folders, selectedFolderIds, onAddFolder, onTog
   return (
     <section className="folder-workspace" aria-label="Local folder browser">
       <aside className="folder-library">
-        <div className="folder-library__header"><div><span className="eyebrow"><FolderOpen size={14} /> Local files</span><h2>Folders</h2></div><button className="icon-button" type="button" onClick={addFolder} aria-label="Add local folder" title="Add folder"><Plus size={18} /></button></div>
+        <div className="folder-library__header"><div><span className="eyebrow"><FolderOpen size={14} /> Local files</span><h2>Folders</h2></div><div className="folder-library__header-actions"><button className="icon-button" type="button" onClick={addFolder} aria-label="Add local folder" title="Add folder"><Plus size={18} /></button><button className="icon-button" type="button" onClick={onPublish} disabled={selectedFolders.length === 0} aria-label="Publish selected folders to GitHub" title="Publish to GitHub"><UploadCloud size={17} /></button></div></div>
         <p className="folder-library__intro">Choose one or more folders. Nothing is uploaded; the browser reads only what you select.</p>
         <input ref={inputRef} className="sr-only" type="file" multiple onChange={(event) => { onAddFolder(event.target.files); event.currentTarget.value = '' }} aria-label="Choose a local folder" />
-        <button className="folder-add-button" type="button" onClick={addFolder}><Plus size={15} /> Add folder</button>
+        <div className="folder-library__actions"><button className="folder-add-button" type="button" onClick={addFolder}><Plus size={15} /> Add folder</button><button className="button button--quiet folder-publish-button" type="button" onClick={onPublish} disabled={selectedFolders.length === 0}><UploadCloud size={15} /> Publish to GitHub</button></div>
         <div className="folder-choices">
           {folders.map((folder) => <div className={selectedFolderIds.includes(folder.id) ? 'folder-choice folder-choice--selected' : 'folder-choice'} key={folder.id}><label><input type="checkbox" checked={selectedFolderIds.includes(folder.id)} onChange={(event) => onToggleFolder(folder.id, event.target.checked)} /><Folder size={15} /><span><strong>{folder.name}</strong><small>{folder.files.length} files</small></span></label><button className="icon-button folder-choice__remove" type="button" onClick={() => onRemoveFolder(folder.id)} aria-label={`Remove ${folder.name}`} title="Remove folder"><Trash2 size={14} /></button></div>)}
         </div>
