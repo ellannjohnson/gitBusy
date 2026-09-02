@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react'
 import { ExploreShelf } from './components/ExploreShelf'
+import { FolderWorkspace, type LocalFolder } from './components/FolderWorkspace'
 import { RepoCard } from './components/RepoCard'
 import { RepoDetail } from './components/RepoDetail'
 import { Sidebar } from './components/Sidebar'
@@ -57,7 +58,7 @@ function hashRoute() {
   const isTags = section === 'tags'
   const isCollection = section === 'library' || section === 'repos'
   return {
-    section: section === 'projects' || section === 'repos' || section === 'releases' || section === 'explore' ? section as Section : 'library' as Section,
+    section: section === 'projects' || section === 'repos' || section === 'folders' || section === 'releases' || section === 'explore' ? section as Section : 'library' as Section,
     kind: validKinds.includes(kind as ExploreKind) ? kind as ExploreKind : 'trending',
     repoId: isCollection ? kind ?? '' : '',
     menu: isMenu,
@@ -79,6 +80,8 @@ function loadRepos() {
 function App() {
   const [repos, setRepos] = useState<Repo[]>(loadRepos)
   const [myRepos, setMyRepos] = useState<Repo[]>([])
+  const [localFolders, setLocalFolders] = useState<LocalFolder[]>([])
+  const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([])
   const [myReposLoading, setMyReposLoading] = useState(false)
   const [myReposError, setMyReposError] = useState('')
   const [myReposReload, setMyReposReload] = useState(0)
@@ -247,7 +250,7 @@ function App() {
     collectionRepos.forEach((repo) => new Set(repo.tags).forEach((tag) => counts.set(tag, (counts.get(tag) ?? 0) + 1)))
     return Array.from(counts.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => ({ label, count }))
   }, [collectionRepos])
-  const selectedRepo = collectionRepos.find((repo) => repo.id === selectedId) ?? repos.find((repo) => repo.id === selectedId) ?? myRepos.find((repo) => repo.id === selectedId) ?? collectionRepos[0]
+  const selectedRepo = collectionRepos.find((repo) => repo.id === selectedId) ?? (selectedId === seedRepos[0].id ? collectionRepos[0] : undefined)
   const meta = sectionMeta[activeSection]
 
   useEffect(() => {
@@ -344,6 +347,28 @@ function App() {
     setRepos(update)
     setMyRepos(update)
     setToast('Note saved locally')
+  }
+
+  const addLocalFolder = (files: FileList | null) => {
+    const selectedFiles = files ? Array.from(files) : []
+    if (selectedFiles.length === 0) return
+    const firstPath = selectedFiles[0].webkitRelativePath || selectedFiles[0].name
+    const name = firstPath.split('/')[0] || 'Selected folder'
+    const id = `${name}-${Date.now()}`
+    setLocalFolders((current) => [...current, { id, name, files: selectedFiles }])
+    setSelectedFolderIds((current) => [...current, id])
+    setActiveSection('folders')
+    window.history.pushState(null, '', '#folders')
+    setToast(`${name} added to local folders`)
+  }
+
+  const toggleLocalFolder = (folderId: string, selected: boolean) => {
+    setSelectedFolderIds((current) => selected ? Array.from(new Set([...current, folderId])) : current.filter((id) => id !== folderId))
+  }
+
+  const removeLocalFolder = (folderId: string) => {
+    setLocalFolders((current) => current.filter((folder) => folder.id !== folderId))
+    setSelectedFolderIds((current) => current.filter((id) => id !== folderId))
   }
 
   const handleSync = async () => {
@@ -445,8 +470,7 @@ function App() {
 
   const showTags = tagsOpen || (typeof window !== 'undefined' && window.location.hash === '#tags')
   const showSettings = settingsOpen || (typeof window !== 'undefined' && window.location.hash === '#settings')
-
-  if (!selectedRepo) return null
+  const selectedLabel = selectedRepo?.name ?? 'No selection'
 
   return (
     <div className="app-shell">
@@ -455,7 +479,7 @@ function App() {
       <div className="app-content">
         <header className="topbar">
           <a className="icon-button menu-button" href="#menu" onClick={() => setSidebarOpen(true)} onPointerUp={() => setSidebarOpen(true)} aria-label="Open navigation" aria-expanded={sidebarOpen}><Menu size={19} /></a>
-          <div className="breadcrumbs"><span>Starboard</span><ChevronRight size={14} /><strong>{meta.title}</strong><span className="breadcrumbs__selection"><ChevronRight size={14} />{selectedRepo.name}</span></div>
+          <div className="breadcrumbs"><span>Starboard</span><ChevronRight size={14} /><strong>{meta.title}</strong><span className="breadcrumbs__selection"><ChevronRight size={14} />{selectedLabel}</span></div>
           <div className="topbar__actions">
             <button className="command-button" type="button" onClick={() => setCommandOpen(true)}><Command size={14} /><span>Quick find</span><kbd>⌘ K</kbd></button>
             <button className={`icon-button ${filtersOpen ? 'icon-button--active' : ''}`} type="button" onClick={() => setFiltersOpen((open) => !open)} aria-label="Toggle filters" aria-expanded={filtersOpen} title="Filters"><SlidersHorizontal size={17} /></button>
@@ -488,16 +512,18 @@ function App() {
           {!syncing && dataSource === 'github' && <div className="context-banner context-banner--live"><span className="context-banner__live-dot" /> Connected as <strong>{accountLogin}</strong> · {repos.length} starred repos loaded.</div>}
           {!syncing && dataSource === 'demo' && githubError && <div className="context-banner context-banner--warning"><X size={16} /> Showing demo data because GitHub could not be reached: {githubError}</div>}
 
-          {activeSection !== 'explore' && <div className="discovery-strip"><span className="discovery-strip__label">Browse GitHub</span>{exploreLinks.map((link) => <a className="discovery-link" href={`#explore/${link.id}`} key={link.id} onClick={() => { setExploreKind(link.id); setActiveSection('explore') }}>{link.label}<ChevronRight size={14} /></a>)}</div>}
+          {activeSection !== 'explore' && activeSection !== 'folders' && <div className="discovery-strip"><span className="discovery-strip__label">Browse GitHub</span>{exploreLinks.map((link) => <a className="discovery-link" href={`#explore/${link.id}`} key={link.id} onClick={() => { setExploreKind(link.id); setActiveSection('explore') }}>{link.label}<ChevronRight size={14} /></a>)}</div>}
 
+          {activeSection === 'folders' && <div className="context-banner"><FolderIcon /> Select one or more local folders to browse them like repositories. Files stay in your browser.</div>}
           {activeSection === 'repos' && <div className="context-banner"><FolderIcon /> {myReposLoading ? 'Loading repositories you own from GitHub…' : myReposError ? `My repos could not load: ${myReposError}` : `${myRepos.length} repositories owned by ${accountLogin}.`}</div>}
           {filter === 'Needs review' && <div className="context-banner"><Clock3 size={16} /> Needs review is a local queue for repos you or the organizer marked for a second look. Stale 90d+ repos are added here; archived repos stay separate.</div>}
           {activeSection === 'projects' && <div className="context-banner"><FolderIcon /> Showing the <strong>Daily driver</strong> project · change the project model in the local store.</div>}
           {activeSection === 'releases' && <div className="context-banner"><PackageIcon /> Release watchlist · latest release metadata loads when a repo preview is opened.</div>}
           {activeSection === 'explore' && <div className="context-banner"><CompassIcon /> GitHub-wide rankings, not a filtered copy of your library · matches are marked <strong>In library</strong>.</div>}
 
+          {activeSection === 'folders' && <FolderWorkspace folders={localFolders} selectedFolderIds={selectedFolderIds} onAddFolder={addLocalFolder} onToggleFolder={toggleLocalFolder} onRemoveFolder={removeLocalFolder} />}
           {activeSection === 'explore' && <ExploreShelf kind={exploreKind} repos={exploreRepos} loading={exploreLoading} error={dataSource === 'github' ? exploreError : 'GitHub data is still connecting.'} onKindChange={setExploreKind} onSave={saveExploreRepo} onRetry={() => setExploreReload((value) => value + 1)} />}
-          {activeSection !== 'explore' && <>
+          {activeSection !== 'explore' && activeSection !== 'folders' && <>
           <section className="library-toolbar" aria-label="Library controls">
             <form className="search-box" onSubmit={(event) => event.preventDefault()}>
               <Search size={18} aria-hidden="true" />
@@ -547,7 +573,7 @@ function App() {
                 </div>
               )}
             </div>
-            {detailOpen && !(activeSection === 'repos' && (myReposLoading || myReposError || myRepos.length === 0)) && <RepoDetail key={selectedRepo.id} repo={selectedRepo} activeTab={detailTab} onTabChange={setDetailTab} onClose={() => setDetailOpen(false)} onTogglePinned={() => togglePinned(selectedRepo.id)} onSaveNote={(note) => saveNote(selectedRepo.id, note)} loading={detailLoading || (dataSource === 'github' && selectedRepo.readme[0] === 'README not loaded yet' && !detailError)} error={detailError} source={dataSource} />}
+            {selectedRepo && detailOpen && !(activeSection === 'repos' && (myReposLoading || myReposError || myRepos.length === 0)) && <RepoDetail key={selectedRepo.id} repo={selectedRepo} activeTab={detailTab} onTabChange={setDetailTab} onClose={() => setDetailOpen(false)} onTogglePinned={() => togglePinned(selectedRepo.id)} onSaveNote={(note) => saveNote(selectedRepo.id, note)} loading={detailLoading || (dataSource === 'github' && selectedRepo.readme[0] === 'README not loaded yet' && !detailError)} error={detailError} source={dataSource} />}
           </section>
           </>}
         </main>

@@ -72,6 +72,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .folder-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .detail-panel {
     position: relative;
     inset-block-start: auto;
@@ -240,6 +244,30 @@
 
   .settings-list {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .folder-browser__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .folder-tree {
+    border-inline-end: 0;
+    border-block-end: 1px solid var(--color-line);
+  }
+
+  .folder-tree ul {
+    max-height: 240px;
+  }
+
+  .folder-file-preview {
+    min-height: 320px;
+  }
+
+  .folder-browser__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding-block: 0.75rem;
   }
 
   .tag-browser {

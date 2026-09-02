@@ -22,6 +22,7 @@ A clickable macOS bundle is installed at `~/Desktop/Starboard.app`. Double-click
 - Intent-search shortcut for local-first repos
 - Live snapshot of your GitHub starred repositories through the local bridge
 - Separate **My repos** section for repositories owned by your GitHub account
+- **Folders** section for one or more local folders, with a GitHub-style file tree and read-only file preview
 - Live Explore shelves for **Trending**, **Top 20**, **Open source**, and **Self-hosted**
 - Explore results show real star counts and mark repos already in your library
 - On-demand README, source tree, and latest-release loading per repo

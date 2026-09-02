@@ -246,6 +246,7 @@ export const seedRepos: Repo[] = [
 export const sectionMeta = {
   library: { title: 'Your library', subtitle: 'A working memory for the repos you meant to come back to.' },
   repos: { title: 'My repos', subtitle: 'Your own repositories, separate from the stars you are collecting.' },
+  folders: { title: 'Folders', subtitle: 'Browse local workspaces with the same calm file view as GitHub.' },
   projects: { title: 'Projects', subtitle: 'Group the sparks by the work they might unlock.' },
   explore: { title: 'Explore', subtitle: 'Find new tools without losing the context behind the old ones.' },
   releases: { title: 'Releases', subtitle: 'Keep the repos you care about close to their next useful version.' },

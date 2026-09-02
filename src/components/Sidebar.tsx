@@ -4,6 +4,7 @@ import {
   Compass,
   FolderGit2,
   FolderKanban,
+  FolderOpen,
   GitFork,
   Library,
   PackageOpen,
@@ -35,6 +36,7 @@ type SidebarProps = {
 const primaryItems: Array<{ id: Section; label: string; icon: typeof Library }> = [
   { id: 'library', label: 'Library', icon: Library },
   { id: 'repos', label: 'My repos', icon: FolderGit2 },
+  { id: 'folders', label: 'Folders', icon: FolderOpen },
   { id: 'projects', label: 'Projects', icon: FolderKanban },
   { id: 'explore', label: 'Explore', icon: Compass },
   { id: 'releases', label: 'Releases', icon: PackageOpen },

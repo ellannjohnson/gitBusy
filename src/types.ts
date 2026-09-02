@@ -24,8 +24,10 @@ export type Repo = {
   license?: string
   inLibrary?: boolean
   visibility?: 'Public' | 'Private'
+  isLocal?: boolean
+  localPath?: string
 }
 
-export type Section = 'library' | 'repos' | 'projects' | 'explore' | 'releases'
+export type Section = 'library' | 'repos' | 'folders' | 'projects' | 'explore' | 'releases'
 export type Filter = 'All' | 'Favorites' | 'Needs review' | 'Archived'
 export type DetailTab = 'Overview' | 'Files' | 'Notes'
