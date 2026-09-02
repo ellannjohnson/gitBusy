@@ -311,6 +311,8 @@ The next session should be able to start by reading this document, running `git 
 
 ## 9. Implementation status after the handoff
 
+Implementation commit: `befad0a2343ac9a3fcd30d51dbb9cb0b0147fb6f` (`feat: add gitBusy folder publish workflow`)
+
 The `gitBusy` UI and server route are now implemented. The Folders workspace has a visible Publish to GitHub action, supports the selected local folders, scans UTF-8 text files, reports skipped binaries and large files, offers repository name, description, Public/Private visibility, gitignore template, and commit message controls, and requires the user to press the final Publish button.
 
 No valid publish request has been sent. EJ is not ready to create a GitHub repository yet. Verification used only an unsafe-name POST, which returned HTTP 400 before credential lookup, and a GET, which returned HTTP 405. No GitHub repository, branch, commit, blob, or tree was created by this session.
