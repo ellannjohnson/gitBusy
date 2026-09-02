@@ -25,17 +25,25 @@ Do not put a GitHub token in this document, the browser, or the app URL.
 
 ## Tailscale mobile access
 
-Open gitBusy Settings and choose **Enable Tailscale access**. gitBusy keeps its server on loopback and adds a tailnet-only HTTPS route at `/gitbusy`. Open the displayed URL on a phone or tablet and enter the pairing code shown on the Mac.
+Tailscale’s Personal plan is free for personal, non-commercial use. Create an account at [login.tailscale.com/start](https://login.tailscale.com/start) using Apple, Google, Microsoft, or GitHub.
 
-Tailscale must be installed and signed in on the Mac and on the mobile device. Tailscale access is off by default. Local notes, favorites, tags, projects, and selected folders remain local to the device in this build.
+1. Install Tailscale on the Mac from [tailscale.com/download](https://tailscale.com/download), open it, and sign in.
+2. Install Tailscale on the phone or tablet from the [iOS App Store](https://apps.apple.com/us/app/tailscale/id1470499037) or [Google Play](https://play.google.com/store/apps/details?id=com.tailscale.ipn), then sign in with the same account.
+3. Accept the VPN-configuration prompt on both devices and confirm they appear connected in the Tailscale app or Machines page.
+4. Tailscale Serve requires HTTPS certificates to be enabled for the tailnet. Approve the prompt if Tailscale asks during setup, or enable HTTPS certificates in the Tailscale admin console.
+5. Start gitBusy on the Mac, open **Settings**, and choose **Enable Tailscale access**.
+6. Open the displayed HTTPS URL ending in `/gitbusy` on the phone or tablet.
+7. Enter the pairing code shown in gitBusy Settings on the Mac.
+
+Tailscale access is off by default. To stop it, choose **Stop mobile access** in Settings or double-click `gitBusy.app` again. Older v0.1.2 builds may show `must specify filename`; use gitBusy v0.1.3 or newer for the corrected Tailscale command. Existing Tailscale routes are preserved.
 
 ## Source install
 
-The source package is `gitBusy-source-v0.1.2.zip`. It is for technical users who want to run gitBusy locally:
+The source package is `gitBusy-source-v0.1.3.zip`. It is for technical users who want to run gitBusy locally:
 
 ```bash
-unzip gitBusy-source-v0.1.2.zip
-cd gitBusy-source-v0.1.2
+unzip gitBusy-source-v0.1.3.zip
+cd gitBusy-source-v0.1.3
 npm install
 npm run dev
 ```

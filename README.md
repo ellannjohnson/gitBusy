@@ -53,9 +53,29 @@ The AI organize button runs a private, deterministic subject classifier today: i
 
 ## Network access
 
-By default, gitBusy listens only on `127.0.0.1`, so GitHub data stays available only on the Mac. In Settings, **Enable Tailscale access** adds a tailnet-only HTTPS route at `/gitbusy` while leaving the local server on loopback. gitBusy reads the existing Tailscale Serve configuration and preserves unrelated routes. The Mac shows a one-time pairing code; a phone or tablet must enter that code before GitHub-backed API requests are allowed.
+By default, gitBusy listens only on `127.0.0.1`, so GitHub data stays available only on the Mac. In Settings, **Enable Tailscale access** adds a tailnet-only HTTPS route at `/gitbusy` while leaving the local server on loopback. gitBusy reads the current Tailscale Serve state and preserves unrelated routes. The Mac shows a pairing code; a phone or tablet must enter it before GitHub-backed API requests are allowed.
 
-The current local browser can continue using gitBusy without pairing. Tailscale access is disabled by default and was not enabled during development. Browser-local notes, favorites, tags, and selected folder files are still device-local; shared cross-device organization will require moving that state into a local SQLite-backed API in a later step.
+### Set up a free Tailscale account
+
+Tailscale’s Personal plan is free for personal, non-commercial use. Start at [login.tailscale.com/start](https://login.tailscale.com/start) and sign in with a supported identity provider such as Apple, Google, Microsoft, or GitHub. Tailscale creates your private tailnet during onboarding.
+
+1. On the Mac, install Tailscale from [tailscale.com/download](https://tailscale.com/download), open it, and sign in with the account that owns the tailnet.
+2. On the phone or tablet, install Tailscale from the [iOS App Store](https://apps.apple.com/us/app/tailscale/id1470499037) or [Google Play](https://play.google.com/store/apps/details?id=com.tailscale.ipn), then sign in with the same account.
+3. Complete the VPN-configuration prompt on each device and confirm both devices appear connected in the Tailscale app or Machines page.
+4. Tailscale Serve requires HTTPS certificates to be enabled for the tailnet. If Tailscale asks for permission during the first gitBusy enablement, approve it, or enable HTTPS certificates in the Tailscale admin console.
+
+### Connect gitBusy from mobile
+
+1. Start gitBusy on the Mac.
+2. Open gitBusy **Settings** and choose **Enable Tailscale access**.
+3. Copy the displayed HTTPS URL, which ends in `/gitbusy`.
+4. Open that URL on the phone or tablet while Tailscale is connected.
+5. Enter the pairing code shown in gitBusy Settings on the Mac.
+6. Use **Stop mobile access** in Settings, or double-click the gitBusy app a second time, to remove the route.
+
+Tailscale access is disabled by default. The local browser can keep using gitBusy without pairing. Browser-local notes, favorites, tags, and selected folder files remain device-local; shared cross-device organization requires a later local SQLite-backed store. Use gitBusy `v0.1.3` or newer for the corrected Serve command. Older `v0.1.2` builds can show `must specify filename` on Tailscale enablement.
+
+Official setup references: [Tailscale pricing](https://tailscale.com/pricing), [Install on macOS](https://tailscale.com/docs/install/mac), [Install on iOS](https://tailscale.com/docs/install/ios), and [Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve).
 
 ## Checks run
 

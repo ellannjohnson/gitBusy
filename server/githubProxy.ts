@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import { Buffer } from 'node:buffer'
 import { randomBytes } from 'node:crypto'
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import https from 'node:https'
 import { URL } from 'node:url'
@@ -527,59 +527,31 @@ async function tailscaleIdentity() {
   }
 }
 
-async function serveConfig() {
+async function serveStatusConfig() {
   const result = await runTailscale(['serve', 'status', '--json'])
-  const parsed = result.stdout.trim() ? JSON.parse(result.stdout) as Record<string, any> : {}
-  if (!parsed.version) parsed.version = '0.0.1'
-  if (!parsed.Web) parsed.Web = {}
-  return parsed
-}
-
-async function writeServeConfig(config: Record<string, any>) {
-  const tempDir = mkdtempSync(join(process.env.TMPDIR || '/tmp', 'gitbusy-serve-'))
-  const configPath = join(tempDir, 'config.json')
-  try {
-    writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8')
-    await runTailscale(['serve', 'set-config', '--all', configPath])
-  } finally {
-    rmSync(tempDir, { recursive: true, force: true })
-  }
+  return result.stdout.trim() ? JSON.parse(result.stdout) as Record<string, any> : {}
 }
 
 async function enableGitBusyServe(dnsName: string) {
   if (!dnsName) throw httpError(502, 'Tailscale did not return a MagicDNS hostname')
-  const config = await serveConfig()
-  const web = config.Web as Record<string, any>
-  const serviceKey = `${dnsName}:443`
-  const service = (web[serviceKey] && typeof web[serviceKey] === 'object') ? web[serviceKey] : { Handlers: {} }
-  const handlers = (service.Handlers && typeof service.Handlers === 'object') ? service.Handlers as Record<string, any> : {}
-  const existing = handlers[GITBUSY_TAILSCALE_PATH]
-  if (existing && existing.Proxy !== GITBUSY_LOCAL_TARGET) {
-    throw httpError(409, `Tailscale path ${GITBUSY_TAILSCALE_PATH} is already used by another service`)
+  try {
+    const config = await serveStatusConfig()
+    const web = config.Web as Record<string, any> | undefined
+    const existing = web
+      ? Object.values(web).map((service) => service?.Handlers?.[GITBUSY_TAILSCALE_PATH]).find(Boolean)
+      : undefined
+    if (existing?.Proxy && existing.Proxy !== GITBUSY_LOCAL_TARGET) {
+      throw httpError(409, `Tailscale path ${GITBUSY_TAILSCALE_PATH} is already used by another service`)
+    }
+  } catch (error) {
+    if (errorStatus(error) === 409) throw error
   }
-  handlers[GITBUSY_TAILSCALE_PATH] = { Proxy: GITBUSY_LOCAL_TARGET }
-  web[serviceKey] = { ...service, Handlers: handlers }
-  config.Web = web
-  await writeServeConfig(config)
+  await runTailscale(['serve', '--yes', '--bg', '--https=443', `--set-path=${GITBUSY_TAILSCALE_PATH}`, GITBUSY_LOCAL_TARGET])
   return `https://${dnsName}${GITBUSY_TAILSCALE_PATH}`
 }
 
 async function disableGitBusyServe() {
-  const config = await serveConfig()
-  const web = config.Web as Record<string, any>
-  let changed = false
-  for (const [serviceKey, service] of Object.entries(web)) {
-    const handlers = service?.Handlers
-    if (!handlers || handlers[GITBUSY_TAILSCALE_PATH]?.Proxy !== GITBUSY_LOCAL_TARGET) continue
-    const nextHandlers = { ...handlers }
-    delete nextHandlers[GITBUSY_TAILSCALE_PATH]
-    web[serviceKey] = { ...service, Handlers: nextHandlers }
-    changed = true
-  }
-  if (changed) {
-    config.Web = web
-    await writeServeConfig(config)
-  }
+  await runTailscale(['serve', '--yes', '--https=443', `--set-path=${GITBUSY_TAILSCALE_PATH}`, 'off'])
 }
 
 function requestHost(request: any) {
