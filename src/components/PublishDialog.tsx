@@ -55,7 +55,7 @@ function isBinary(path: string) {
 
 function sanitizeRepoName(folderName: string) {
   const safeName = folderName.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'folder'
-  return `starboard-${safeName}`.slice(0, 100)
+  return `gitBusy-${safeName}`.slice(0, 100)
 }
 
 function formatBytes(bytes: number) {
@@ -128,7 +128,7 @@ export function PublishDialog({ folders, selectedFolderIds, onClose, onPublished
   const [commitOverride, setCommitOverride] = useState<string | null>(null)
 
   const name = nameOverride ?? defaultRepoName
-  const commitMessage = commitOverride ?? `Add ${name} from Starboard`
+  const commitMessage = commitOverride ?? `Add ${name} from gitBusy`
 
   useEffect(() => {
     let cancelled = false
@@ -164,7 +164,7 @@ export function PublishDialog({ folders, selectedFolderIds, onClose, onPublished
         description: description.trim(),
         isPrivate,
         addGitignore,
-        commitMessage: commitMessage.trim() || `Add ${trimmedName} from Starboard`,
+        commitMessage: commitMessage.trim() || `Add ${trimmedName} from gitBusy`,
         files: preparedFiles.map(({ path, content }) => ({ path, content })),
       })
       setResult(publishResult)

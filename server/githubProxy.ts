@@ -67,7 +67,7 @@ function githubGet(path: string, authorization: string, accept = 'application/vn
       headers: {
         Accept: accept,
         Authorization: authorization,
-        'User-Agent': 'starboard-local',
+        'User-Agent': 'gitbusy-local',
         'X-GitHub-Api-Version': '2022-11-28',
       },
     }, (response) => {
@@ -104,7 +104,7 @@ function githubJsonWrite(path: string, method: 'POST' | 'PATCH', authorization: 
         Authorization: authorization,
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(body),
-        'User-Agent': 'starboard-local',
+        'User-Agent': 'gitbusy-local',
         'X-GitHub-Api-Version': '2022-11-28',
       },
     }, (response) => {
@@ -451,10 +451,10 @@ function sendJson(response: any, status: number, payload: unknown) {
 
 export function githubProxy(): Plugin {
   return {
-    name: 'starboard-github-local-proxy',
+    name: 'gitbusy-github-local-proxy',
     configureServer(server) {
       server.middlewares.use(async (request, response, next) => {
-        const url = new URL(request.url ?? '/', 'http://starboard.local')
+        const url = new URL(request.url ?? '/', 'http://gitbusy.local')
         if (!url.pathname.startsWith('/api/github/')) {
           next()
           return

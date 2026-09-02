@@ -1,4 +1,4 @@
-# Starboard
+# gitBusy
 
 A local-first GitHub star manager web app inspired by Stargazer’s workflow. Built as an original MVP with a warm editorial dashboard, a live local GitHub bridge, and browser-local persistence.
 
@@ -14,7 +14,7 @@ Then open the localhost URL Vite prints.
 
 ## Desktop launcher
 
-A clickable macOS bundle is installed at `~/Desktop/Starboard.app`. Double-click it to start Starboard and open the browser; double-click it again to stop the Starboard server and close matching local tabs when macOS allows browser automation. The canonical bundle lives at `~/Applications/Starboard.app`.
+A clickable macOS bundle is installed at `~/Desktop/gitBusy.app`. Double-click it to start gitBusy and open the browser; double-click it again to stop the gitBusy server and close matching local tabs when macOS allows browser automation. The canonical bundle lives at `~/Applications/gitBusy.app`.
 
 ## What works now
 

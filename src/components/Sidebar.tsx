@@ -14,6 +14,7 @@ import {
   Tags,
   X,
 } from 'lucide-react'
+import type { SyntheticEvent } from 'react'
 import type { Filter, Repo, Section } from '../types'
 
 type SidebarProps = {
@@ -30,7 +31,7 @@ type SidebarProps = {
   onOpenTags: () => void
   onSettings: () => void
   sidebarOpen: boolean
-  onClose: () => void
+  onClose: (event?: SyntheticEvent) => void
 }
 
 const primaryItems: Array<{ id: Section; label: string; icon: typeof Library }> = [
@@ -46,13 +47,13 @@ export function Sidebar({ activeSection, onNavigate, pinnedCount, reviewCount, a
   return (
     <aside className={`sidebar ${sidebarOpen ? 'sidebar--open' : ''}`} aria-label="Primary navigation">
       <div className="sidebar__topline">
-        <a className="brand" href="#library" onClick={() => onNavigate('library')} aria-label="Starboard library">
+        <a className="brand" href="#library" onClick={() => onNavigate('library')} aria-label="gitBusy library">
           <span className="brand__mark" aria-hidden="true"><Sparkles size={16} strokeWidth={2.4} /></span>
-          <span>starboard</span>
+          <span>gitBusy</span>
         </a>
-        <a className="icon-button sidebar__close" href="#library" onClick={onClose} onPointerUp={onClose} aria-label="Close navigation">
+        <button className="icon-button sidebar__close" type="button" onClick={(event) => onClose(event)} aria-label="Close navigation">
           <X size={18} />
-        </a>
+        </button>
       </div>
 
       <div className="sidebar__account">

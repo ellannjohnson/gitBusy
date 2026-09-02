@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react'
 import {
   Check,
   ChevronDown,
@@ -71,8 +71,8 @@ function hashRoute() {
 function loadRepos() {
   if (typeof window === 'undefined') return seedRepos
   try {
-    const saved = window.localStorage.getItem('starboard-repos')
-    return saved ? JSON.parse(saved) as Repo[] : seedRepos
+    const saved = window.localStorage.getItem('gitbusy-repos') ?? window.localStorage.getItem('starboard-repos')
+    return saved ? (JSON.parse(saved) as Repo[]).map((repo) => ({ ...repo, id: String(repo.id) })) : seedRepos
   } catch {
     return seedRepos
   }
@@ -125,7 +125,7 @@ function App() {
   const selectedIdRef = useRef(selectedId)
 
   useEffect(() => {
-    window.localStorage.setItem('starboard-repos', JSON.stringify(repos))
+    window.localStorage.setItem('gitbusy-repos', JSON.stringify(repos))
   }, [repos])
 
   useEffect(() => {
@@ -450,9 +450,25 @@ function App() {
     }
   }
 
-  const closeSidebar = () => {
+  const commitHashRoute = (nextHash: string, replace = false) => {
+    if (window.location.hash === nextHash) return
+    const method = replace ? 'replaceState' : 'pushState'
+    window.history[method](null, '', nextHash)
+    window.dispatchEvent(new Event('hashchange'))
+  }
+
+  const openSidebar = (event?: SyntheticEvent) => {
+    event?.preventDefault()
+    setSidebarOpen(true)
+    commitHashRoute('#menu')
+  }
+
+  const closeSidebar = (event?: SyntheticEvent) => {
+    event?.preventDefault()
     setSidebarOpen(false)
-    if (window.location.hash === '#menu') window.location.hash = activeSection === 'explore' ? `#explore/${exploreKind}` : `#${activeSection}`
+    const route = hashRoute()
+    const nextHash = route.repoId ? `${route.section === 'repos' ? '#repos' : '#library'}/${route.repoId}` : activeSection === 'explore' ? `#explore/${exploreKind}` : `#${activeSection}`
+    commitHashRoute(nextHash, true)
   }
 
   const closeSettings = () => {
@@ -483,8 +499,8 @@ function App() {
       <Sidebar activeSection={activeSection} onNavigate={setActiveSection} pinnedCount={pinnedCount} reviewCount={reviewCount} accountLogin={accountLogin} dataSource={dataSource} repos={repos} selectedId={selectedId} onSelectRepo={(repoId) => { selectRepo(repoId); closeSidebar() }} onFilterChange={setFilter} onOpenTags={() => { setTagsOpen(true); setActiveSection('library') }} onSettings={() => { setSettingsOpen(true); closeSidebar() }} sidebarOpen={sidebarOpen} onClose={closeSidebar} />
       <div className="app-content">
         <header className="topbar">
-          <a className="icon-button menu-button" href="#menu" onClick={() => setSidebarOpen(true)} onPointerUp={() => setSidebarOpen(true)} aria-label="Open navigation" aria-expanded={sidebarOpen}><Menu size={19} /></a>
-          <div className="breadcrumbs"><span>Starboard</span><ChevronRight size={14} /><strong>{meta.title}</strong><span className="breadcrumbs__selection"><ChevronRight size={14} />{selectedLabel}</span></div>
+          <button className="icon-button menu-button" type="button" onClick={openSidebar} aria-label="Open navigation" aria-expanded={sidebarOpen}><Menu size={19} /></button>
+          <div className="breadcrumbs"><span>gitBusy</span><ChevronRight size={14} /><strong>{meta.title}</strong><span className="breadcrumbs__selection"><ChevronRight size={14} />{selectedLabel}</span></div>
           <div className="topbar__actions">
             <button className="command-button" type="button" onClick={() => setCommandOpen(true)}><Command size={14} /><span>Quick find</span><kbd>⌘ K</kbd></button>
             <button className={`icon-button ${filtersOpen ? 'icon-button--active' : ''}`} type="button" onClick={() => setFiltersOpen((open) => !open)} aria-label="Toggle filters" aria-expanded={filtersOpen} title="Filters"><SlidersHorizontal size={17} /></button>
@@ -594,7 +610,7 @@ function App() {
           <div className="settings-panel__header"><div><span className="eyebrow">Workspace</span><h2 id="settings-title">Settings</h2></div><a className="icon-button" href={activeSection === 'explore' ? `#explore/${exploreKind}` : `#${activeSection}`} onClick={closeSettings} onPointerUp={closeSettings} aria-label="Close settings"><X size={18} /></a></div>
           <div className="settings-panel__section"><span className="section-kicker">GitHub connection</span><div className="settings-status"><span className="context-banner__live-dot" /><div><strong>{dataSource === 'github' ? `Connected as ${accountLogin}` : 'Demo fallback'}</strong><p>{dataSource === 'github' ? 'Your starred repositories are loaded through the local bridge.' : githubError || 'No live GitHub snapshot yet.'}</p></div></div><button className="button button--primary button--small" type="button" onClick={handleSync} disabled={syncing}><RefreshCw className={syncing ? 'spin' : ''} size={14} /> {syncing ? 'Refreshing…' : 'Refresh stars'}</button></div>
           <div className="settings-panel__section"><span className="section-kicker">Local data</span><p className="settings-copy">Favorites, notes, and subject organization stay in this browser. GitHub credentials never enter the page.</p><div className="settings-list"><div><span>Stored repos</span><strong>{repos.length}</strong></div><div><span>Saved favorites</span><strong>{pinnedCount}</strong></div><div><span>Subjects available</span><strong>{subjects.length - 1}</strong></div></div></div>
-          <div className="settings-panel__footer"><span className="private-note"><Settings2 size={13} /> Starboard local workspace</span><button className="button button--quiet button--small" type="button" onClick={closeSettings}>Done</button></div>
+          <div className="settings-panel__footer"><span className="private-note"><Settings2 size={13} /> gitBusy local workspace</span><button className="button button--quiet button--small" type="button" onClick={closeSettings}>Done</button></div>
         </section>
       </div>}
 

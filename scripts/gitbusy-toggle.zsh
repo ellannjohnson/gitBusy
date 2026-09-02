@@ -4,14 +4,14 @@ set -u
 PROJECT='/Users/ellannjohnson/stargazer-local'
 PORT='5174'
 URL="http://127.0.0.1:${PORT}/"
-RUNTIME_DIR="${PROJECT}/.starboard-runtime"
+RUNTIME_DIR="${PROJECT}/.gitbusy-runtime"
 PID_FILE="${RUNTIME_DIR}/server.pid"
 LOG_FILE="${RUNTIME_DIR}/server.log"
 
 mkdir -p "$RUNTIME_DIR"
 
 notify() {
-  /usr/bin/osascript -e "display notification \"$1\" with title \"Starboard\"" >/dev/null 2>&1 || true
+  /usr/bin/osascript -e "display notification \"$1\" with title \"gitBusy\"" >/dev/null 2>&1 || true
 }
 
 port_pid() {
@@ -27,7 +27,7 @@ is_ours() {
 }
 
 close_browser_tabs() {
-  /usr/bin/osascript <<'APPLESCRIPT' >/dev/null 2>&1 || true
+  /usr/bin/osascript <<'APPLESCRIPT' >/dev/null 2>&1 &
 set targetPrefix to "http://127.0.0.1:5174/"
 try
   tell application "Safari"
@@ -63,6 +63,16 @@ try
   end tell
 end try
 APPLESCRIPT
+  local browser_pid=$!
+  for _ in {1..20}; do
+    if ! kill -0 "$browser_pid" 2>/dev/null; then
+      wait "$browser_pid" 2>/dev/null || true
+      return 0
+    fi
+    /bin/sleep 0.1
+  done
+  /bin/kill "$browser_pid" 2>/dev/null || true
+  wait "$browser_pid" 2>/dev/null || true
 }
 
 stop_server() {
@@ -89,7 +99,7 @@ start_server() {
     if is_ours "$existing"; then
       printf '%s\n' "$existing" > "$PID_FILE"
       /usr/bin/open "$URL"
-      notify 'Starboard is already running'
+      notify 'gitBusy is already running'
       return 0
     fi
     notify "Port ${PORT} is already in use"
@@ -103,12 +113,12 @@ start_server() {
   for _ in {1..40}; do
     if /usr/bin/curl -fsS --max-time 1 "$URL" >/dev/null 2>&1; then
       /usr/bin/open "$URL"
-      notify 'Starboard is ready'
+      notify 'gitBusy is ready'
       return 0
     fi
     /bin/sleep 0.25
   done
-  notify "Starboard did not start — see ${LOG_FILE}"
+  notify "gitBusy did not start — see ${LOG_FILE}"
   return 1
 }
 

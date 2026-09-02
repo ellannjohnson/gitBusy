@@ -1,4 +1,4 @@
-# Starboard: Preview Fix + gitBusy Publish-to-GitHub
+# gitBusy: Preview Fix + gitBusy Publish-to-GitHub
 
 ## Goal
 
@@ -7,7 +7,7 @@ Land two things in one session:
 1. Fix the repo preview card snap-back to OpenCut when selecting a different repo.
 2. Add **gitBusy** — a publish-to-GitHub workflow for the local folder browser.
 
-The companion app artifact is still called Starboard. The publish feature itself is the part the user named `gitBusy`.
+The app and its folder-publishing workflow are both named `gitBusy`.
 
 ---
 
@@ -65,7 +65,7 @@ The companion app artifact is still called Starboard. The publish feature itself
 
 5. Manual verify: click `OpenCut`, see preview with OpenCut. Click `datasciencecoursera`, see preview swap to `datasciencecoursera`. The breadcrumb reads:
    ```
-   Starboard > Your library > datasciencecoursera
+   gitBusy > Your library > datasciencecoursera
    ```
    No flash back to OpenCut.
 
@@ -98,7 +98,7 @@ Content-Type: application/json
   "description": "optional",
   "isPrivate": true,
   "addGitignore": "Node",
-  "commitMessage": "Add my-new-repo from Starboard",
+  "commitMessage": "Add my-new-repo from gitBusy",
   "files": [
     { "path": "src/index.js", "content": "console.log('hi')" }
   ]
@@ -149,11 +149,11 @@ Content-Type: application/json
 
 #### Form
 
-- **Repo name** (text input). Default: `starboard-<sanitized-folder-name>`. Strip invalid chars. Max 100. Auto-suggest but allow override.
+- **Repo name** (text input). Default: `gitBusy-<sanitized-folder-name>`. Strip invalid chars. Max 100. Auto-suggest but allow override.
 - **Description** (text input, optional).
 - **Visibility** (radio): **Public** / **Private**. Default: Public.
 - **Initialize with** (select): Node / Python / Go / Java / Empty. Default: Node.
-- **Commit message** (text input). Default: `Add <repo-name> from Starboard`.
+- **Commit message** (text input). Default: `Add <repo-name> from gitBusy`.
 - **Files preview** (scrollable): file count, total size, list of paths.
 
 #### File selection
@@ -206,7 +206,7 @@ The first commit message and the initial commit both include a `README.md` gener
 ```
 # <repo-name>
 
-Imported from Starboard on <date>.
+Imported from gitBusy on <date>.
 
 ## Folders included
 - <folder-name> (<fileCount> files)
@@ -297,9 +297,9 @@ If the user answers in the same message, build with their answer. Otherwise buil
 
 - Working tree: `/Users/ellannjohnson/stargazer-local`
 - Last commit before this handoff: `e275569 fix: stabilize repo preview selection`
-- The Starboard server can be started with:
+- The gitBusy server can be started with:
   ```bash
-  open ~/Desktop/Starboard.app
+  open ~/Desktop/gitBusy.app
   ```
 - The local GitHub credential helper is already configured and verified.
 - The local Trilium MCP is reachable at `http://localhost:37840/mcp`.
@@ -337,4 +337,4 @@ The remaining preview failure came from the detail merge, not from the card clic
 
 The merge now compares IDs through `String(repo.id)` and writes the original normalized string ID, owner, and name back after applying detail metadata. The first-repo fallback remains removed, so a missing selection cannot silently become OpenCut.
 
-Live Helium verification on 2026-09-02: the Starboard tab was opened at `#library`, the `Tsitko/datasciencecoursera` card was clicked, the address changed to `#library/30251453`, the breadcrumb changed to `datasciencecourse`, the right preview showed `datasciencecourse`, and after a five-second README/detail wait the preview and library cards were still present. The native browser driver initially targeted Helium’s New Tab and a bookmark menu; that was a test-tool targeting error, not an app result.
+Live Helium verification on 2026-09-02: the gitBusy tab was opened at `#library`, the `Tsitko/datasciencecoursera` card was clicked, the address changed to `#library/30251453`, the breadcrumb changed to `datasciencecourse`, the right preview showed `datasciencecourse`, and after a five-second README/detail wait the preview and library cards were still present. The native browser driver initially targeted Helium’s New Tab and a bookmark menu; that was a test-tool targeting error, not an app result.

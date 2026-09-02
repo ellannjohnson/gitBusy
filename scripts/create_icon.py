@@ -24,7 +24,7 @@ for index in range(16):
 draw.polygon(points, fill=(201, 103, 68, 255))
 draw.ellipse((center[0] - 74, center[1] - 74, center[0] + 74, center[1] + 74), fill=(244, 235, 217, 255))
 
-output = root / 'assets' / 'starboard-icon-1024.png'
+output = root / 'assets' / 'gitbusy-icon-1024.png'
 output.parent.mkdir(parents=True, exist_ok=True)
 image.resize((1024, 1024), Image.Resampling.LANCZOS).save(output)
 print(output)

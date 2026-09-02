@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleDisplayName</key>
-  <string>Starboard</string>
+  <string>gitBusy</string>
   <key>CFBundleExecutable</key>
   <string>applet</string>
   <key>CFBundleIconFile</key>
-  <string>Starboard.icns</string>
+  <string>gitBusy.icns</string>
   <key>CFBundleIdentifier</key>
-  <string>com.ellannjohnson.starboard</string>
+  <string>com.ellannjohnson.gitbusy</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
-  <string>Starboard</string>
+  <string>gitBusy</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
