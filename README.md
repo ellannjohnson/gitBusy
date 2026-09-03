@@ -73,7 +73,7 @@ Tailscale’s Personal plan is free for personal, non-commercial use. Start at [
 5. Enter the pairing code shown in gitBusy Settings on the Mac.
 6. Use **Stop mobile access** in Settings, or double-click the gitBusy app a second time, to remove the route.
 
-Tailscale access is disabled by default. The local browser can keep using gitBusy without pairing. Browser-local notes, favorites, tags, and selected folder files remain device-local; shared cross-device organization requires a later local SQLite-backed store. Use gitBusy `v0.1.3` or newer for the corrected Serve command. Older `v0.1.2` builds can show `must specify filename` on Tailscale enablement.
+Tailscale access is disabled by default. The local browser can keep using gitBusy without pairing. Browser-local notes, favorites, tags, and selected folder files remain device-local; shared cross-device organization requires a later local SQLite-backed store. Use gitBusy `v0.1.4` or newer for the corrected Tailscale command and Vite host allowlist. Older `v0.1.2` builds can fail during Serve configuration, and `v0.1.3` builds can reject the forwarded `*.ts.net` Host header.
 
 Official setup references: [Tailscale pricing](https://tailscale.com/pricing), [Install on macOS](https://tailscale.com/docs/install/mac), [Install on iOS](https://tailscale.com/docs/install/ios), and [Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve).
 

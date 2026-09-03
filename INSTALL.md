@@ -35,15 +35,15 @@ Tailscale’s Personal plan is free for personal, non-commercial use. Create an 
 6. Open the displayed HTTPS URL ending in `/gitbusy` on the phone or tablet.
 7. Enter the pairing code shown in gitBusy Settings on the Mac.
 
-Tailscale access is off by default. To stop it, choose **Stop mobile access** in Settings or double-click `gitBusy.app` again. Older v0.1.2 builds may show `must specify filename`; use gitBusy v0.1.3 or newer for the corrected Tailscale command. Existing Tailscale routes are preserved.
+Tailscale access is off by default. To stop it, choose **Stop mobile access** in Settings or double-click `gitBusy.app` again. Use gitBusy v0.1.4 or newer for the corrected Tailscale command and Vite host allowlist. Older v0.1.2 builds may fail during Serve configuration, and v0.1.3 builds may reject the forwarded `*.ts.net` Host header. Existing Tailscale routes are preserved.
 
 ## Source install
 
-The source package is `gitBusy-source-v0.1.3.zip`. It is for technical users who want to run gitBusy locally:
+The source package is `gitBusy-source-v0.1.4.zip`. It is for technical users who want to run gitBusy locally:
 
 ```bash
-unzip gitBusy-source-v0.1.3.zip
-cd gitBusy-source-v0.1.3
+unzip gitBusy-source-v0.1.4.zip
+cd gitBusy-source-v0.1.4
 npm install
 npm run dev
 ```
