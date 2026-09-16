@@ -316,12 +316,14 @@ ln -s /Applications "$DMG_ROOT/Applications"
 hdiutil create -volname gitBusy -srcfolder "$DMG_ROOT" -ov -format UDZO "$APP_DMG" >/dev/null
 
 # Deterministic SHA256SUMS.txt — sort by file name so the order is
-# stable across runs.
+# stable across runs. MANIFEST.txt records the build time but uses
+# public-safe labels instead of local paths or host identity.
 SUMS_TMP="$STAGE/SHA256SUMS.txt"
 {
   /usr/bin/shasum -a 256 "$APP_ZIP"
   /usr/bin/shasum -a 256 "$APP_DMG"
-} > "$SUMS_TMP"
+  /usr/bin/shasum -a 256 "$OUT/${SOURCE_NAME}.zip"
+} | /usr/bin/sort -k2 > "$SUMS_TMP"
 mv "$SUMS_TMP" "$OUT/SHA256SUMS.txt"
 
 # MANIFEST.txt — reproducibility inputs. None of these contain
@@ -345,10 +347,10 @@ MANIFEST_TMP="$STAGE/MANIFEST.txt"
   print "packaging_mode=${GITBUSY_MODE}"
   print "codesign_authority=${CODESIGN_AUTHORITY}"
   print "notary_profile=${MACOS_NOTARY_PROFILE}"
-  print "notary_run=pending-stage-5"
-  print "staging_dir=${STAGE}"
+  print "notary_run=not-run-ad-hoc-preview"
+  print "staging_dir=temporary-build-directory"
   print "build_started_at=$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ)"
-  print "build_host=$(/usr/sbin/sysctl -n kern.hostname 2>/dev/null || /usr/bin/hostname)"
+  print "build_host=local-builder"
 } > "$MANIFEST_TMP"
 mv "$MANIFEST_TMP" "$OUT/MANIFEST.txt"
 
