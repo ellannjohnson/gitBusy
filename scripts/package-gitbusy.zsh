@@ -320,9 +320,9 @@ hdiutil create -volname gitBusy -srcfolder "$DMG_ROOT" -ov -format UDZO "$APP_DM
 # public-safe labels instead of local paths or host identity.
 SUMS_TMP="$STAGE/SHA256SUMS.txt"
 {
-  /usr/bin/shasum -a 256 "$APP_ZIP"
-  /usr/bin/shasum -a 256 "$APP_DMG"
-  /usr/bin/shasum -a 256 "$OUT/${SOURCE_NAME}.zip"
+  (cd "$OUT" && /usr/bin/shasum -a 256 "${APP_ZIP##*/}")
+  (cd "$OUT" && /usr/bin/shasum -a 256 "${APP_DMG##*/}")
+  (cd "$OUT" && /usr/bin/shasum -a 256 "${SOURCE_NAME}.zip")
 } | /usr/bin/sort -k2 > "$SUMS_TMP"
 mv "$SUMS_TMP" "$OUT/SHA256SUMS.txt"
 

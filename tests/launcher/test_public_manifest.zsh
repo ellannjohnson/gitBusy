@@ -12,10 +12,13 @@ PACKAGER="$REPO_ROOT/scripts/package-gitbusy.zsh"
 fail() { print -u2 "FAIL: $1"; exit 1 }
 pass() { print "  ok: $1" }
 
-if ! /usr/bin/grep -q '/usr/bin/shasum -a 256 "$OUT/${SOURCE_NAME}.zip"' "$PACKAGER"; then
-  fail "SHA256SUMS.txt must include the standalone source ZIP"
+if ! /usr/bin/grep -q '/usr/bin/shasum -a 256 "${SOURCE_NAME}.zip"' "$PACKAGER"; then
+  fail "SHA256SUMS.txt must include the standalone source ZIP by basename"
 fi
-pass "checksum generation includes the source ZIP"
+if ! /usr/bin/grep -q 'cd "$OUT"' "$PACKAGER"; then
+  fail "SHA256SUMS.txt must be generated from the output directory"
+fi
+pass "checksum generation includes the source ZIP without absolute paths"
 
 if /usr/bin/grep -q 'staging_dir=${STAGE}' "$PACKAGER"; then
   fail "public MANIFEST.txt must not expose the temporary staging path"
