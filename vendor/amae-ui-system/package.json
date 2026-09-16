@@ -1,0 +1,17 @@
+{
+  "name": "@tki/amae-ui-system",
+  "version": "0.2.0",
+  "type": "module",
+  "description": "Shared UI foundations bundled with gitBusy for reproducible source builds.",
+  "exports": {
+    ".": "./src/index.css",
+    "./tokens.css": "./src/tokens.css",
+    "./components.css": "./src/components.css",
+    "./tokens.json": "./tokens/tokens.json"
+  },
+  "files": [
+    "src",
+    "tokens"
+  ],
+  "license": "GPL-3.0-only"
+}

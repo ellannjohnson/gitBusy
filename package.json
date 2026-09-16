@@ -1,0 +1,35 @@
+{
+  "name": "gitBusy",
+  "private": true,
+  "version": "0.1.19",
+  "type": "module",
+  "author": "EJ",
+  "license": "GPL-3.0-only",
+  "engines": {
+    "node": ">=22.12.0 <23.0.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint && zsh scripts/lint-no-raw-html.sh",
+    "lint:html": "zsh scripts/lint-no-raw-html.sh",
+    "test": "node --experimental-strip-types --test server/*.test.ts",
+    "start": "node --experimental-strip-types server/runProductionServer.ts",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tki/amae-ui-system": "file:vendor/amae-ui-system",
+    "lucide-react": "^1.39.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "oxlint": "^1.79.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.2"
+  }
+}

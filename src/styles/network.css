@@ -1,0 +1,333 @@
+/* Tailscale access status and remote-device pairing */
+.network-access-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.8rem;
+  margin-block: 0.8rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+}
+
+.network-access-card > span {
+  color: var(--color-faint);
+  font-family: var(--font-mono);
+  font-size: 0.61rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.network-access-card code {
+  color: var(--color-accent-dark);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+.network-access-card small {
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+
+.network-pairing-code {
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  letter-spacing: 0.16em;
+}
+
+.settings-error {
+  margin: 0.65rem 0;
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.network-pairing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: color-mix(in oklch, var(--color-ink) 46%, transparent);
+}
+
+.network-pairing-panel {
+  width: min(100%, 430px);
+  padding: 1.5rem;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--color-shadow);
+}
+
+.network-pairing-panel h2 {
+  margin: 0.45rem 0 0.55rem;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 2.25rem;
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.network-pairing-panel > p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.network-pairing-panel form {
+  display: grid;
+  gap: 0.45rem;
+  margin-block-start: 1.2rem;
+}
+
+.network-pairing-panel form label {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.network-pairing-panel form input {
+  min-height: 44px;
+  padding: 0 0.75rem;
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  outline: 0;
+}
+
+.network-pairing-panel form input:focus {
+  border-color: var(--color-accent-line);
+  box-shadow: 0 0 0 3px var(--color-accent-wash);
+}
+
+.network-pairing-panel form button {
+  margin-block-start: 0.35rem;
+}
+
+@media (max-width: 42rem) {
+  .network-pairing-overlay {
+    align-items: end;
+    padding: 0;
+  }
+
+  .network-pairing-panel {
+    width: 100%;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+}
+
+.context-banner--warning {
+  align-items: flex-start;
+  color: var(--color-ink-soft);
+  background: var(--color-surface-warm);
+  border-color: var(--color-line-strong);
+}
+
+.context-banner--warning > svg {
+  margin-block-start: 0.15rem;
+  color: var(--color-danger);
+}
+
+.github-setup-banner__content {
+  display: grid;
+  min-width: 0;
+  gap: 0.55rem;
+}
+
+.github-setup-banner__content > strong {
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+}
+
+.github-setup-banner__content p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.github-setup-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-block-start: 0.15rem;
+}
+
+.github-setup-banner__details {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+.github-setup-banner__details summary {
+  width: fit-content;
+  color: var(--color-accent-dark);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.github-setup-banner__details ol {
+  display: grid;
+  gap: 0.35rem;
+  padding-inline-start: 1.2rem;
+  margin: 0.6rem 0 0;
+}
+
+.github-setup-banner code,
+.github-auth-card code {
+  padding: 0.08rem 0.28rem;
+  color: var(--color-accent-dark);
+  font-family: var(--font-mono);
+  font-size: 0.78em;
+  background: var(--color-accent-wash);
+  border-radius: var(--radius-sm);
+}
+
+.github-setup-banner__technical {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--color-danger) !important;
+  font-size: 0.7rem !important;
+  background: transparent !important;
+}
+
+.context-banner__live-dot--off {
+  background: var(--color-faint);
+  box-shadow: none;
+}
+
+.github-auth-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+}
+
+.github-auth-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.github-auth-card__header h3 {
+  margin: 0.35rem 0 0;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.github-auth-card__header > svg {
+  flex: 0 0 auto;
+  color: var(--color-success);
+}
+
+.github-auth-card__copy,
+.github-auth-card__hint,
+.github-auth-card__flow p,
+.github-auth-card__fallback p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.github-auth-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.github-auth-card__flow {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  background: var(--color-surface-warm);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.github-auth-card__flow > p strong {
+  color: var(--color-ink-soft);
+}
+
+.github-auth-card__flow a {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  gap: 0.3rem;
+  color: var(--color-accent-dark);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.github-auth-card__code {
+  width: fit-content;
+  padding: 0.5rem 0.7rem !important;
+  color: var(--color-ink) !important;
+  font-size: 1.15rem !important;
+  letter-spacing: 0.14em;
+  background: var(--color-surface-raised) !important;
+  border: 1px solid var(--color-line-strong);
+}
+
+.github-auth-card__error {
+  margin: 0;
+  color: var(--color-danger) !important;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.github-auth-card__fallback {
+  padding-block-start: 0.7rem;
+  border-block-start: 1px solid var(--color-line);
+}
+
+.github-auth-card__fallback summary {
+  color: var(--color-ink-soft);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.github-auth-card__fallback ol {
+  display: grid;
+  gap: 0.35rem;
+  padding-inline-start: 1.2rem;
+  margin: 0.6rem 0 0;
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.github-auth-card__fallback > p {
+  margin-block-start: 0.55rem;
+}
+
+@media (max-width: 42rem) {
+  .github-setup-banner__actions,
+  .github-auth-card__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .github-setup-banner__actions .button,
+  .github-auth-card__actions .button {
+    justify-content: center;
+  }
+}

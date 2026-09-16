@@ -1,0 +1,399 @@
+import type { Repo } from './types'
+
+export type GithubRemoteRepo = {
+  id: number
+  owner: string
+  name: string
+  description: string | null
+  language: string | null
+  topics: string[]
+  archived: boolean
+  updatedAt: string
+  pushedAt: string | null
+  defaultBranch: string
+  githubUrl: string
+  starsCount?: number
+  forksCount?: number
+  license?: string
+  visibility?: 'Public' | 'Private'
+  starGrowth?: number
+}
+
+export type GithubSnapshot = {
+  user: { login: string; name: string | null; avatarUrl: string }
+  repos: GithubRemoteRepo[]
+}
+
+export type GithubAuthUser = {
+  login: string
+  name: string | null
+  avatarUrl: string
+}
+
+export type GithubAuthStatus = {
+  configured: boolean
+  connected: boolean
+  login: string
+  name?: string | null
+  avatarUrl?: string
+  error?: string
+}
+
+export type GithubDeviceFlow = {
+  flowId: string
+  userCode: string
+  verificationUri: string
+  expiresIn: number
+  interval: number
+}
+
+export type GithubDevicePoll =
+  | { status: 'pending' | 'slow_down'; retryAfter: number }
+  | { status: 'authorized'; user: GithubAuthUser }
+  | { status: 'error'; message: string }
+
+export type ExploreKind = 'trending' | 'top' | 'opensource' | 'selfhosted' | 'learning' | 'littleknown' | 'personalized' | 'growth-7' | 'growth-14' | 'growth-30'
+
+export type ExplorePreferenceSignal = {
+  kind: 'topic' | 'language'
+  value: string
+  count: number
+}
+
+export type ExploreGrowthRepo = {
+  id: number
+  full_name: string
+  stargazers_count: number
+  starGrowth: number
+}
+
+export type ExploreGrowthMeta = {
+  candidatesConsidered: number
+  unavailableCount: number
+  source: string
+  apiVersion: string
+}
+
+export type GithubExploreResponse = {
+  kind: ExploreKind
+  repos: GithubRemoteRepo[]
+  preferenceSignals?: ExplorePreferenceSignal[]
+  status?: 'ready' | 'unavailable'
+  periodDays?: 7 | 14 | 30
+  note?: string
+  meta?: ExploreGrowthMeta
+  error?: string
+}
+
+export function isGrowthShelf(kind: ExploreKind): boolean {
+  return kind === 'growth-7' || kind === 'growth-14' || kind === 'growth-30'
+}
+
+export type GithubListRepo = {
+  id: string
+  fullName: string
+}
+
+export type GithubList = {
+  id: string
+  name: string
+  description: string
+  isPrivate: boolean
+  repos: GithubListRepo[]
+}
+
+export type GithubListPushRequest = {
+  lists: Array<{
+    remoteId?: string
+    name: string
+    description: string
+    isPrivate: boolean
+    repos: string[]
+  }>
+  deletedRemoteIds: string[]
+}
+
+export type GithubListPushResult = {
+  lists: GithubList[]
+  created: number
+  updated: number
+  deleted: number
+  changedRepos: number
+  verified: boolean
+  complete?: boolean
+  warnings?: string[]
+}
+
+export type GithubListsResponse = {
+  lists: GithubList[]
+  complete?: boolean
+  warnings?: string[]
+}
+
+const languageColors: Record<string, string> = {
+  C: '#555555',
+  'C++': '#f34b7d',
+  CSS: '#563d7c',
+  Go: '#00add8',
+  HTML: '#e34c26',
+  Java: '#b07219',
+  JavaScript: '#f1e05a',
+  Kotlin: '#a97bff',
+  Markdown: '#6f42c1',
+  PHP: '#777bb4',
+  Python: '#3572a5',
+  Ruby: '#701516',
+  Rust: '#dea584',
+  Swift: '#f05138',
+  TypeScript: '#3178c6',
+}
+
+function formatRelative(dateValue: string) {
+  const days = Math.max(0, Math.floor((Date.now() - new Date(dateValue).getTime()) / 86_400_000))
+  if (days === 0) return 'today'
+  if (days === 1) return '1d ago'
+  if (days < 7) return `${days}d ago`
+  if (days < 30) return `${Math.floor(days / 7)}w ago`
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`
+  return `${Math.floor(days / 365)}y ago`
+}
+
+const GITBUSY_BASE_PATH = '/gitbusy'
+
+function apiPath(path: string) {
+  if (typeof window === 'undefined') return path
+  const pathname = window.location.pathname
+  const prefix = pathname === GITBUSY_BASE_PATH || pathname.startsWith(`${GITBUSY_BASE_PATH}/`) ? GITBUSY_BASE_PATH : ''
+  return `${prefix}${path}`
+}
+
+export async function fetchGithubSnapshot(): Promise<GithubSnapshot> {
+  const response = await fetch(apiPath('/api/github/snapshot'))
+  const payload = await response.json() as GithubSnapshot & { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'GitHub snapshot failed')
+  return payload
+}
+
+export async function fetchGithubAuthStatus(): Promise<GithubAuthStatus> {
+  const response = await fetch(apiPath('/api/github/auth/status'))
+  const payload = await response.json() as GithubAuthStatus & { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'GitHub auth status failed')
+  return payload
+}
+
+export async function startGithubDeviceFlow(): Promise<GithubDeviceFlow> {
+  const response = await fetch(apiPath('/api/github/auth/device/start'), { method: 'POST' })
+  const payload = await response.json() as GithubDeviceFlow & { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'GitHub sign-in could not start')
+  return payload
+}
+
+export async function pollGithubDeviceFlow(flowId: string): Promise<GithubDevicePoll> {
+  const response = await fetch(apiPath('/api/github/auth/device/poll'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ flowId }),
+  })
+  const payload = await response.json() as GithubDevicePoll & { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'GitHub sign-in could not be completed')
+  return payload
+}
+
+export async function signOutGithub(): Promise<GithubAuthStatus> {
+  const response = await fetch(apiPath('/api/github/auth/signout'), { method: 'POST' })
+  const payload = await response.json() as GithubAuthStatus & { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'GitHub sign-out failed')
+  return payload
+}
+
+export async function starGithubRepo(owner: string, name: string): Promise<void> {
+  const response = await fetch(apiPath('/api/github/star'), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ owner, name }),
+  })
+  const payload = await response.json() as { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'GitHub repository could not be starred')
+}
+
+export async function fetchGithubRepos(): Promise<{ repos: GithubRemoteRepo[] }> {
+  const response = await fetch(apiPath('/api/github/repos'))
+  const payload = await response.json() as { repos: GithubRemoteRepo[]; error?: string }
+  if (!response.ok) throw new Error(payload.error || 'GitHub repositories request failed')
+  return payload
+}
+
+export async function fetchGithubExplore(kind: ExploreKind): Promise<GithubExploreResponse> {
+  const response = await fetch(apiPath(`/api/github/explore?kind=${kind}`))
+  const payload = await response.json() as GithubExploreResponse & { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'GitHub Explore request failed')
+  return payload
+}
+
+export async function fetchGithubLists(): Promise<GithubListsResponse> {
+  const response = await fetch(apiPath('/api/github/lists'))
+  const payload = await response.json() as GithubListsResponse & { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'GitHub lists request failed')
+  return payload
+}
+
+export async function pushGithubLists(body: GithubListPushRequest): Promise<GithubListPushResult> {
+  const response = await fetch(apiPath('/api/github/lists/push'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const payload = await response.json() as GithubListPushResult & { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'GitHub lists could not be pushed')
+  return payload
+}
+
+export async function fetchGithubRepo(owner: string, name: string): Promise<Partial<Repo>> {
+  const params = new URLSearchParams({ owner, name })
+  const response = await fetch(apiPath(`/api/github/repo?${params.toString()}`))
+  const payload = await response.json() as Partial<Repo> & { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'GitHub repo fetch failed')
+  return payload
+}
+
+export function mapGithubRepo(remote: GithubRemoteRepo, local?: Repo): Repo {
+  const description = remote.description || 'No description provided on GitHub.'
+  return {
+    id: String(remote.id),
+    owner: remote.owner,
+    name: remote.name,
+    description,
+    summary: description,
+    language: remote.language || 'Unknown',
+    languageColor: languageColors[remote.language || ''] || '#8b877d',
+    tags: remote.topics.slice(0, 5),
+    status: remote.archived ? 'Archived' : local?.status === 'Needs review' ? 'Needs review' : 'Active',
+    updated: formatRelative(remote.updatedAt),
+    updatedAt: new Date(remote.updatedAt).getTime(),
+    project: local?.project || 'Inbox',
+    note: local?.note || '',
+    isPinned: local?.isPinned || false,
+    githubUrl: remote.githubUrl,
+    readme: ['README not loaded yet', 'Select this repo to fetch its README from GitHub.'],
+    files: [],
+    lastRelease: 'Not loaded',
+    starsCount: remote.starsCount,
+    forksCount: remote.forksCount,
+    license: remote.license,
+    inLibrary: Boolean(local),
+    visibility: remote.visibility,
+  }
+}
+
+export function mergeGithubRepoDetail(repo: Repo, detail: Partial<Repo>): Repo {
+  return {
+    ...repo,
+    description: detail.description || repo.description,
+    summary: detail.description || repo.summary,
+    readme: detail.readme ?? repo.readme,
+    files: detail.files ?? repo.files,
+    lastRelease: detail.lastRelease ?? repo.lastRelease,
+  }
+}
+
+export function mergeGithubRepos(remoteRepos: GithubRemoteRepo[], current: Repo[]) {
+  const currentByName = new Map(current.map((repo) => [`${repo.owner}/${repo.name}`, repo]))
+  return remoteRepos.map((repo) => mapGithubRepo(repo, currentByName.get(`${repo.owner}/${repo.name}`)))
+}
+
+const subjectRules = [
+  { label: 'AI & agents', terms: ['ai', 'agent', 'llm', 'model', 'prompt', 'inference', 'rag', 'machine learning'] },
+  { label: 'Developer tools', terms: ['cli', 'tui', 'developer', 'devtool', 'terminal', 'git', 'editor', 'workflow'] },
+  { label: 'Self-hosted', terms: ['self-hosted', 'selfhosted', 'homelab', 'docker', 'server', 'privacy'] },
+  { label: 'Web & frontend', terms: ['web', 'frontend', 'browser', 'javascript', 'typescript', 'react', 'vue', 'svelte'] },
+  { label: 'Data & databases', terms: ['database', 'sqlite', 'sql', 'data', 'graph', 'search', 'vector'] },
+  { label: 'Design systems', terms: ['design', 'ui', 'ux', 'css', 'figma', 'component'] },
+  { label: 'Automation', terms: ['automation', 'workflow', 'integration', 'api', 'bot', 'crawler'] },
+  { label: 'Mobile', terms: ['ios', 'android', 'mobile', 'swift', 'kotlin'] },
+  { label: 'Reference', terms: ['awesome', 'curated', 'reference', 'documentation', 'learning', 'list'] },
+] as const
+
+export function subjectsForRepo(repo: Pick<Repo, 'name' | 'description' | 'tags' | 'language'>) {
+  const haystack = [repo.name, repo.description, repo.language, ...repo.tags].join(' ').toLowerCase()
+  const subjects = subjectRules.filter((rule) => rule.terms.some((term) => haystack.includes(term))).map((rule) => rule.label)
+  return subjects.length > 0 ? subjects.slice(0, 3) : ['Unsorted']
+}
+
+export type PublishFolderFile = {
+  path: string
+  content: string
+}
+
+export type PublishFolderRequest = {
+  name: string
+  description: string
+  isPrivate: boolean
+  addGitignore: 'Node' | 'Python' | 'Go' | 'Java' | 'Empty'
+  commitMessage: string
+  files: PublishFolderFile[]
+}
+
+export type PublishFolderResult = {
+  html_url: string
+  full_name: string
+  default_branch: string
+  filesUploaded: number
+  filesSkipped: Array<{ path: string; reason: string }>
+  warnings: string[]
+}
+
+export async function publishFolder(body: PublishFolderRequest): Promise<PublishFolderResult> {
+  const response = await fetch(apiPath('/api/github/publish-folder'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const payload = await response.json() as PublishFolderResult & { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'GitHub folder publish failed')
+  return payload
+}
+
+export type NetworkStatus = {
+  tailscaleAvailable: boolean
+  backendState: string
+  hostName: string
+  dnsName: string
+  tailscaleEnabled: boolean
+  authenticated: boolean
+  url: string
+  pairingCode?: string
+  error?: string
+}
+
+export type NetworkToggleResult = NetworkStatus & {
+  pairingCode?: string
+}
+
+export async function fetchNetworkStatus(): Promise<NetworkStatus> {
+  const response = await fetch(apiPath('/api/network/status'))
+  const payload = await response.json() as NetworkStatus & { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'Network status request failed')
+  return payload
+}
+
+export async function setTailscaleAccess(enabled: boolean): Promise<NetworkToggleResult> {
+  const response = await fetch(apiPath('/api/network/tailscale'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  })
+  const payload = await response.json() as NetworkToggleResult & { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'Tailscale access could not be changed')
+  return payload
+}
+
+export async function pairNetwork(code: string): Promise<NetworkStatus> {
+  const response = await fetch(apiPath('/api/network/pair'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  })
+  const payload = await response.json() as NetworkStatus & { error?: string }
+  if (!response.ok) throw new Error(payload.error || 'This device could not be paired')
+  return payload
+}

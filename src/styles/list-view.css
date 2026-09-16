@@ -1,0 +1,39 @@
+/* Alternate compact list view */
+.repo-grid--list {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.55rem;
+}
+
+.repo-card--list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  flex-direction: row;
+}
+
+.repo-card--list .repo-card__body {
+  padding-block: 0.8rem;
+}
+
+.repo-card--list .repo-card__summary {
+  display: none;
+}
+
+.repo-card--list .repo-card__meta {
+  padding-block: 0.55rem 0;
+  margin-block-start: 0.55rem;
+  border-block-start: 0;
+}
+
+.repo-card--list .repo-card__actions {
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2rem;
+  min-width: 96px;
+  padding: 0.4rem 0.7rem;
+  border-block-start: 0;
+  border-inline-start: 1px solid var(--color-line);
+}
+
+.repo-card--list .repo-card__actions .card-action--active span {
+  display: none;
+}

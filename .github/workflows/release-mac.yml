@@ -1,0 +1,228 @@
+# Stage 4 — gitBusy macOS release CI.
+#
+# This workflow is authored locally; activation requires GitHub
+# Actions to be enabled on the repository AND four repo secrets
+# to be populated (see "External gate" below). Until both happen
+# the workflow file lives dormant.
+#
+# Job layout (matrix-free; one macOS runner, one Node version):
+#
+#   pr-checks:    runs on every PR — installs Node, npm ci with
+#                 --engine-strict, runs npm test, lint, build,
+#                 audit, lockfile validation, and gitleaks secret
+#                 scan. NEVER publishes a release.
+#
+#   tag-release:  runs on tags matching `v*.*.*`. Reuses the pr-checks
+#                 steps, then packages with GITBUSY_MODE=distribution
+#                 (fail-closed), verifies the produced artifacts
+#                 (Info.plist, architecture, production entrypoint,
+#                 absence of Vite/HMR markers, SHA256SUMS.txt,
+#                 MANIFEST.txt), and uploads the candidate artifacts
+#                 to the workflow run. NO public release is created
+#                 by this workflow — that requires a separate
+#                 EJ/Amae approval gate.
+#
+# Action version policy: third-party actions are pinned to a major
+# tag rather than a commit SHA. From this read-only lane we cannot
+# resolve the current commit SHA of each major tag without `git
+# ls-remote` against github.com, which is an external mutation the
+# directive does not permit. Before enabling Actions the operator
+# should resolve each tag to its current commit SHA via
+# `git ls-remote https://github.com/<owner>/<action> refs/tags/<tag>^{}`
+# and replace the tag references below with the resolved SHAs. The
+# plan calls for SHA pinning; this workflow makes the policy and
+# resolution step explicit in a comment block.
+#
+# External gate (cannot be created from this lane):
+#   - GitHub Actions enabled on ellannjohnson/gitBusy.
+#   - Repository secrets populated:
+#       MACOS_CODESIGN_IDENTITY        (Developer ID identity string)
+#       MACOS_NOTARY_PROFILE           (notarytool keychain profile name)
+#       GITBUSY_NODE_SHA256            (expected archive SHA-256)
+#       MACOS_CERT_P12_BASE64          (Stage 5 only — not used here)
+#       MACOS_CERT_PASSWORD            (Stage 5 only — not used here)
+#       KEYCHAIN_PASSWORD              (Stage 5 only — not used here)
+#       MACOS_NOTARY_KEY_PATH          (Stage 5 only)
+#       MACOS_NOTARY_KEY_ID            (Stage 5 only)
+#       MACOS_NOTARY_ISSUER            (Stage 5 only)
+#
+# Stage 4 uses the first three. Stage 5 will add the others.
+
+name: release-mac
+
+# Bare `on:` is the GitHub Actions convention; YAML 1.1 parsers may
+# coerce it to a boolean, but GitHub Actions' own loader treats it as
+# the workflow trigger. We keep the bare form for compatibility with
+# every GitHub workflow author tool.
+'on':
+  pull_request:
+    branches: [docs-portability-remediation, main]
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+jobs:
+  pr-checks:
+    name: PR checks (lint, test, build, audit, lockfile, secrets)
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node 22.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.12.0'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Strict install
+        run: npm ci --include=optional --engine-strict --no-audit --no-fund
+
+      - name: Tests
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: SCA (npm audit)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Lockfile validation
+        # Verify the lockfile resolves against package.json without
+        # touching the network for resolution. This catches drift
+        # between the two files before any packaging step runs.
+        run: npm ls --package-lock-only --depth=0
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  tag-release:
+    name: Tag candidate (distribution packaging + artifact checks)
+    # Run only on tag pushes. PRs never reach this job.
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: pr-checks
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node 22.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.12.0'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Strict install
+        run: npm ci --include=optional --engine-strict --no-audit --no-fund
+
+      - name: Re-run quality gates (defense in depth)
+        run: |
+          npm test
+          npm run lint
+          npm run build
+          npm audit --omit=dev --audit-level=high
+
+      - name: Resolve tag → version
+        id: tag
+        run: |
+          TAG_NAME="${GITHUB_REF_NAME#v}"
+          echo "version=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Distribution packaging
+        env:
+          GITBUSY_GITHUB_CLIENT_ID: ${{ secrets.GITBUSY_GITHUB_CLIENT_ID }}
+          GITBUSY_MODE: distribution
+          GITBUSY_BUILD: ${{ github.run_number }}
+          GITBUSY_NODE_VERSION: 'v22.22.3'
+          # Distribution-mode prereqs (fail-closed gate):
+          MACOS_CODESIGN_IDENTITY: ${{ secrets.MACOS_CODESIGN_IDENTITY }}
+          MACOS_NOTARY_PROFILE: ${{ secrets.MACOS_NOTARY_PROFILE }}
+          GITBUSY_NODE_SHA256: ${{ secrets.GITBUSY_NODE_SHA256 }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.tag.outputs.version }}"
+          ARCH="${RUNNER_ARCH:-arm64}"
+          # The package script's distribution gate fires BEFORE signing,
+          # so an unset secret produces a clean refusal rather than an
+          # ad-hoc artifact.
+          GITBUSY_KEEP_RELEASE=0 ./scripts/package-gitbusy.zsh "$VERSION" "$ARCH"
+
+      - name: Verify produced artifacts
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          set -euo pipefail
+          ARCH="${RUNNER_ARCH:-arm64}"
+          RELEASE_DIR="release"
+          ZIP="$RELEASE_DIR/gitBusy-macos-${ARCH}-v${VERSION}.zip"
+          DMG="$RELEASE_DIR/gitBusy-macos-${ARCH}-v${VERSION}.dmg"
+          SUMS="$RELEASE_DIR/SHA256SUMS.txt"
+          MANIFEST="$RELEASE_DIR/MANIFEST.txt"
+          CODESIGN="$RELEASE_DIR/codesign.log"
+          for f in "$ZIP" "$DMG" "$SUMS" "$MANIFEST"; do
+            [[ -s "$f" ]] || { echo "missing artifact: $f"; exit 1; }
+          done
+
+          # Info.plist identity + arch + bundle version
+          TMP="$(mktemp -d)"
+          ditto -x -k "$ZIP" "$TMP"
+          PLIST="$TMP/gitBusy.app/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PLIST"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST"
+
+          # Production entrypoint is the bundled standalone server, not Vite
+          [[ -f "$TMP/gitBusy.app/Contents/Resources/project/server/runProductionServer.ts" ]] \
+            || { echo "production entrypoint missing"; exit 1; }
+          # No Vite/HMR markers inside the bundle (Vite must not ship
+          # into the production .app; the launcher runs the standalone
+          # server which serves the prebuilt dist/).
+          if /usr/bin/grep -qrE '/@vite/client|/@react-refresh' "$TMP/gitBusy.app/Contents/Resources/project/dist/" ; then
+            echo "Vite/HMR markers present in production bundle"; exit 1
+          fi
+          # Manifest reproducibility inputs are present and non-empty
+          grep -q '^version=' "$MANIFEST"
+          grep -q '^build=' "$MANIFEST"
+          grep -q '^target_arch=' "$MANIFEST"
+          grep -q '^host_arch=' "$MANIFEST"
+          grep -q '^host_node=' "$MANIFEST"
+          grep -q '^node_archive_sha256=' "$MANIFEST"
+          grep -q '^package_lock_sha256=' "$MANIFEST"
+          grep -q '^deps_cache_key=' "$MANIFEST"
+          grep -q '^bundle_identifier=' "$MANIFEST"
+          grep -q '^packaging_mode=distribution$' "$MANIFEST"
+          grep -q '^codesign_authority=' "$MANIFEST"
+          # codesign authority must NOT be ad-hoc under distribution
+          if /usr/bin/grep -q '^codesign_authority=ad-hoc$' "$MANIFEST"; then
+            echo "codesign authority is ad-hoc under distribution mode"; exit 1
+          fi
+          [[ -s "$CODESIGN" ]] || { echo "codesign.log missing"; exit 1; }
+          rm -rf "$TMP"
+
+      - name: Upload candidate artifacts (NO public release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitBusy-macOS-candidate-${{ steps.tag.outputs.version }}
+          path: |
+            release/*.zip
+            release/*.dmg
+            release/SHA256SUMS.txt
+            release/MANIFEST.txt
+            release/codesign.log
+          if-no-files-found: error
