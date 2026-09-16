@@ -32,12 +32,12 @@ Two install paths. Pick the one that matches how you want to run gitBusy.
 
 ### macOS app (recommended for daily use)
 
-The macOS app is produced by the in-tree `scripts/package-gitbusy.zsh` script. The script reads `APP_VERSION` and `APP_BUILD` from `src/appMeta.ts`, signs the bundle (ad-hoc under `GITBUSY_MODE=internal`, the default; Developer ID identity under `GITBUSY_MODE=distribution`), and writes the DMG, ZIP, `SHA256SUMS.txt`, and `MANIFEST.txt` into `release/`. This pass ships **Apple Silicon (arm64) build 25** as the verified current release; an Intel (x64) rebuild and Linux distribution are deferred. See [`INSTALL.md`](./INSTALL.md#packaging-modes) for the full mode-gating contract.
+The macOS app is produced by the in-tree `scripts/package-gitbusy.zsh` script. The script reads `APP_VERSION` and `APP_BUILD` from `src/appMeta.ts`, signs the bundle (ad-hoc under `GITBUSY_MODE=internal`, the default; Developer ID identity under `GITBUSY_MODE=distribution`), and writes the DMG, ZIP, `SHA256SUMS.txt`, and `MANIFEST.txt` into `release/`. This pass ships **Apple Silicon (arm64) build 25** as the verified current release; **Intel/x64 is coming soon**, and Linux distribution is deferred. See [`INSTALL.md`](./INSTALL.md#packaging-modes) for the full mode-gating contract.
 
 | Mac | File |
 |---|---|
 | Apple Silicon (M1, M2, M3, M4, or later) | `gitBusy-macos-arm64-v0.1.19.dmg` |
-| Intel | _deferred — `scripts/package-gitbusy.zsh` supports x64 if and when it's cut; no x64 DMG is shipped in this archive_ |
+| Intel | _Coming soon — the packaging script supports x64, but an Intel DMG is not included in this release._ |
 
 The matching `.zip` archives contain the same `.app` without the DMG installer. A `gitBusy-source-v0.1.19.zip` archive is also available for technical users who want to run from source on either architecture.
 

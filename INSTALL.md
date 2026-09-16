@@ -5,7 +5,7 @@
 Choose the DMG that matches the Mac:
 
 - Apple Silicon (M1, M2, M3, M4, or later): `gitBusy-macos-arm64-v0.1.19.dmg`
-- Intel: _deferred — `scripts/package-gitbusy.zsh` supports x64 if and when it's cut; no x64 DMG is shipped in this archive_
+- Intel: _Intel/x64 is coming soon — the packaging script supports x64, but an Intel DMG is not included in this release._
 
 Each DMG contains a self-contained `gitBusy.app` with the matching Node runtime and native dependencies. The source ZIP works on either architecture with a local Node/npm installation. The Intel package, when cut, will be an x86_64 build and does not require Rosetta on an Intel Mac.
 
